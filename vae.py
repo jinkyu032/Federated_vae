@@ -10,6 +10,7 @@ import argparse
 from collections import OrderedDict
 import cloudpickle
 from scipy.stats import norm
+import copy
 
 @dataclass
 class Config:
@@ -61,6 +62,42 @@ class Config:
     def federated_rounds200_epochs1(cls):
         return cls(name="federated_rounds200_epochs1", num_epochs={}, num_rounds=200, local_epochs=1)
 
+    @classmethod
+    def federated_rounds50_epochs2_legd(cls):
+        return cls(name="federated_rounds50_epochs2_legd", num_epochs={}, num_rounds=50, local_epochs=2)
+
+    @classmethod
+    def federated_rounds25_epochs4_legd(cls):
+        return cls(name="federated_rounds25_epochs4_legd", num_epochs={}, num_rounds=25, local_epochs=4)
+
+    @classmethod
+    def federated_rounds25_epochs8_legd(cls):
+        return cls(name="federated_rounds25_epochs8_legd", num_epochs={}, num_rounds=25, local_epochs=8)
+
+    @classmethod
+    def federated_rounds200_epochs1_legd(cls):
+        return cls(name="federated_rounds200_epochs1_legd", num_epochs={}, num_rounds=200, local_epochs=1)
+
+
+    @classmethod
+    def federated_rounds100_epochs2_geld(cls):
+        return cls(name="federated_rounds100_epochs2_geld", num_epochs={}, num_rounds=100, local_epochs=2)
+    
+    @classmethod
+    def federated_rounds50_epochs4_geld(cls):
+        return cls(name="federated_rounds50_epochs4_geld", num_epochs={}, num_rounds=50, local_epochs=4)
+
+    @classmethod
+    def federated_rounds25_epochs8_geld(cls):
+        return cls(name="federated_rounds25_epochs8_geld", num_epochs={}, num_rounds=25, local_epochs=8)
+
+    @classmethod
+    def federated_rounds200_epochs1_geld(cls):
+        return cls(name="federated_rounds200_epochs1_geld", num_epochs={}, num_rounds=200, local_epochs=1)
+    
+
+    
+
     def asdict(self):
         return asdict(self)
     # def asdict(self):
@@ -99,7 +136,7 @@ fashion_train = datasets.FashionMNIST(root='./data', train=True, download=True, 
 combined_train = torch.utils.data.ConcatDataset([mnist_train, fashion_train])
 centralized_loader = torch.utils.data.DataLoader(combined_train, batch_size=128, shuffle=True)
 
-# Federated: Separate loaders for each client
+# Federated: legd loaders for each client
 mnist_loader = torch.utils.data.DataLoader(mnist_train, batch_size=64, shuffle=True)
 fashion_loader = torch.utils.data.DataLoader(fashion_train, batch_size=64, shuffle=True)
 
@@ -142,6 +179,15 @@ class VAE(nn.Module):
         z = self.reparameterize(mu, log_var)
         recon_x = self.decoder(z)
         return recon_x, mu, log_var, z
+
+    def encoder_forward(self, x):
+        h = self.encoder(x.view(-1, 784))
+        mu, log_var = h[:, :2], h[:, 2:]
+        z = self.reparameterize(mu, log_var)
+        return mu, log_var, z
+    
+    def decoder_forward(self, z):
+        return self.decoder(z)
 
 # VAE loss function
 def vae_loss(recon_x, x, mu, log_var):
@@ -382,6 +428,65 @@ class Client:
                 self.optimizer.step()
         return self.model.state_dict()
 
+    
+    def train_legd(self, global_model, local_epochs):
+        #freeze global_model parameter
+        for param in global_model.parameters():
+            param.requires_grad = False
+        self.model.load_state_dict(global_model.state_dict())
+        self.model.train()
+        for _ in range(local_epochs):
+            for data, _ in self.data_loader:
+                data = data.to(device)
+                self.optimizer.zero_grad()
+                
+                #process 1. local encoder + freezed global decoder
+                mu, log_var, z = self.model.encoder_forward(data)
+                recon_batch = global_model.decoder_forward(z)
+
+                #process 2. detached local encoder output + local decoder. Make sure that encoder is not updated
+                with torch.no_grad():
+                    mu1, log_var1, z1 = self.model.encoder_forward(data)
+                    mu1, log_var1, z1 = mu1.detach(), log_var1.detach(), z1.detach()
+                recon_batch1 = self.model.decoder_forward(z1)
+
+                loss = vae_loss(recon_batch, data, mu, log_var) + vae_loss(recon_batch1, data, mu1, log_var1)
+                loss.backward()
+                self.optimizer.step()
+        return self.model.state_dict()
+
+    def train_geld(self, global_model, local_epochs):
+            #freeze global_model parameter
+            for param in global_model.parameters():
+                param.requires_grad = False
+            self.model.load_state_dict(global_model.state_dict())
+            self.model.train()
+            for _ in range(local_epochs):
+                for data, _ in self.data_loader:
+                    #create freezed local decoder
+                    freezed_decoder = copy.deepcopy(self.model.decoder)
+                    for param in freezed_decoder.parameters():
+                        param.requires_grad = False
+
+                    data = data.to(device)
+                    self.optimizer.zero_grad()
+                    
+                    #process 1. freezed global encoder + local decoder
+                    with torch.no_grad():
+                        mu1, log_var1, z1 = global_model.encoder_forward(data)
+                    recon_batch1 = self.model.decoder_forward(z1)
+
+                    #process 2. local encoder output + freezed local decoder. Make sure that decoder is not updated
+                    mu, log_var, z = self.model.encoder_forward(data)
+                    #forward through local decoder. But do not update the parameters
+                    recon_batch = freezed_decoder(z)
+
+
+                    loss = vae_loss(recon_batch, data, mu, log_var) + vae_loss(recon_batch1, data, mu1, log_var1)
+                    loss.backward()
+                    self.optimizer.step()
+            return self.model.state_dict()
+
 
 # Server class for federated learning
 class Server:
@@ -402,10 +507,22 @@ def train_federated(cfg):
     local_epochs = cfg.local_epochs
     
     for round_num in range(num_rounds):
-        client_weights = [
-            MNISTClient.train(server.global_model.state_dict(), local_epochs),
-            FashionClient.train(server.global_model.state_dict(), local_epochs)
-        ]
+        if "legd" in cfg.name:
+            client_weights = [
+                MNISTClient.train_legd(server.global_model, local_epochs),
+                FashionClient.train_legd(server.global_model, local_epochs)
+            ]
+        
+        elif "geld" in cfg.name:
+            client_weights = [
+                MNISTClient.train_geld(server.global_model, local_epochs),
+                FashionClient.train_geld(server.global_model, local_epochs)
+            ]
+        else:
+            client_weights = [
+                MNISTClient.train(server.global_model.state_dict(), local_epochs),
+                FashionClient.train(server.global_model.state_dict(), local_epochs)
+            ]
         server.aggregate(client_weights)
         
         mnist_train_loss_avg = compute_loss(MNISTClient.model, mnist_loader) 
