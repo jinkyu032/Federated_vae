@@ -6,7 +6,7 @@ __all__ = ['vae_loss', 'compute_loss']
 # VAE loss function
 def vae_loss(recon_x, x, mu, log_var, mu_target=0):
     BCE = nn.functional.binary_cross_entropy(recon_x, x.view(-1, 784), reduction='sum')
-    KLD = -0.5 * torch.sum(2*mu_target + 1 + log_var - mu.pow(2) - log_var.exp())
+    KLD = -0.5 * torch.sum(2*mu_target*mu + 1 + log_var - mu.pow(2) - log_var.exp())
     return BCE + KLD
 
 # Compute loss for a data loader
