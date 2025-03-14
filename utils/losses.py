@@ -10,13 +10,13 @@ def vae_loss(recon_x, x, mu, log_var, mu_target=0):
     return BCE + KLD
 
 # Compute loss for a data loader
-def compute_loss(model, data_loader, device):
+def compute_loss(model, data_loader, device, mu_target=0):
     model.eval()
     total_loss = 0
     with torch.no_grad():
         for data, _ in data_loader:
             data = data.to(device)
             recon_batch, mu, log_var, z = model(data)
-            loss = vae_loss(recon_batch, data, mu, log_var)
+            loss = vae_loss(recon_batch, data, mu, log_var, mu_target=mu_target)
             total_loss += loss.item()
     return total_loss / len(data_loader.dataset)

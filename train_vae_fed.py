@@ -10,6 +10,8 @@ from torch.utils.data import DataLoader
 import torch.nn as nn
 from copy import deepcopy
 
+import matplotlib.pyplot as plt
+
 from utils.losses import compute_loss
 from utils.eval import analyze_model
 from utils.data import get_dataloaders
@@ -19,6 +21,7 @@ from models import get_model
 from utils.visualize import plot_latent_per_client
 
 from tqdm import tqdm
+import gc
 
 
 @dataclass
@@ -65,7 +68,8 @@ class Config:
     
     @classmethod
     def federated_per_enc(cls):
-        return cls(name="federated_per_enc_5", client_type="per_enc", num_rounds=200, local_epochs=1, analyze_local_models_before_update=False, plot_independent_latents=True)
+        return cls(name="federated_per_enc_1", client_type="per_enc", num_rounds=200, local_epochs=1, analyze_local_models_before_update=False, plot_independent_latents=True,
+                   mnist_vae_mu_target=1, fashion_vae_mu_target=-1)
 
     @classmethod
     def federated_per_dec(cls):
@@ -104,6 +108,11 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         server.aggregate(client_weights)
 
 
+        
+        
+        ## Eval && analysis
+        figures_to_close = []
+        
         if cfg.analyze_local_models_before_update:
             # Analyzie MNISTClient.model
             MNISTClient_latent_fig, MNISTClient_mnist_recon_fig, MNISTClient_fashion_recon_fig, MNISTClient_manifold_fig, MNISTClient_mnist_test_loss_avg, MNISTClient_fashion_test_loss_avg = analyze_model(cfg, MNISTClient.model, f"Client 1 Round {round_num+1}", data_loaders=data_loaders)
@@ -125,13 +134,15 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
                 "FashionClient_mnist_test_loss": FashionClient_mnist_test_loss_avg,
                 "FashionClient_fashion_test_loss": FashionClient_fashion_test_loss_avg,
             })
+            
+            figures_to_close.extend([MNISTClient_latent_fig, MNISTClient_mnist_recon_fig, MNISTClient_fashion_recon_fig, MNISTClient_manifold_fig, FashionClient_latent_fig, FashionClient_mnist_recon_fig, FashionClient_fashion_recon_fig, FashionClient_manifold_fig])
 
         # Update Client Models
         MNISTClient.update_model(server.global_model.state_dict())
         FashionClient.update_model(server.global_model.state_dict())
         
-        mnist_train_loss_avg = compute_loss(MNISTClient.model, mnist_loader, cfg.device) 
-        fashion_train_loss_avg = compute_loss(FashionClient.model, fashion_loader, cfg.device)
+        mnist_train_loss_avg = compute_loss(MNISTClient.model, mnist_loader, cfg.device, mu_target=cfg.mnist_vae_mu_target) 
+        fashion_train_loss_avg = compute_loss(FashionClient.model, fashion_loader, cfg.device, mu_target=cfg.fashion_vae_mu_target)
 
         wandb_results.update({
             "MNIST_train_loss": mnist_train_loss_avg,
@@ -159,18 +170,10 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
                 "FashionClient_mnist_test_loss": FashionClient_mnist_test_loss_avg,
                 "FashionClient_fashion_test_loss": FashionClient_fashion_test_loss_avg,
             })
+            figures_to_close.extend([MNISTClient_latent_fig, MNISTClient_mnist_recon_fig, MNISTClient_fashion_recon_fig, MNISTClient_manifold_fig, FashionClient_latent_fig, FashionClient_mnist_recon_fig, FashionClient_fashion_recon_fig, FashionClient_manifold_fig])
 
         # Analyzie server.global_model
         server_latent_fig, server_mnist_recon_fig, server_fashion_recon_fig, server_manifold_fig, server_mnist_test_loss_avg, server_fashion_test_loss_avg = analyze_model(cfg, server.global_model, f"Server Round {round_num+1}", data_loaders=data_loaders)
-
-
-        if cfg.plot_independent_latents:
-            ind_fig = plot_latent_per_client(MNISTClient.model, FashionClient.model, data_loaders, title=f"Federated Round {round_num+1}", device=cfg.device)
-            wandb_results.update({
-                "independent_latents": wandb.Image(ind_fig, caption="Independent Latents"),
-            })
-
-
 
         wandb_results.update({
             "MNIST_test_loss": server_mnist_test_loss_avg,
@@ -180,9 +183,22 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
             "server_fashion_reconstructions": wandb.Image(server_fashion_recon_fig, caption="Server Fashion-MNIST Reconstructions"),
             "server_manifold": wandb.Image(server_manifold_fig, caption="Server Manifold"),
         })
+        figures_to_close.extend([server_latent_fig, server_mnist_recon_fig, server_fashion_recon_fig, server_manifold_fig])
+
+        if cfg.plot_independent_latents:
+            ind_fig = plot_latent_per_client(MNISTClient.model, FashionClient.model, data_loaders, title=f"Federated Round {round_num+1}", device=cfg.device)
+            wandb_results.update({
+                "independent_latents": wandb.Image(ind_fig, caption="Independent Latents"),
+            })
+            figures_to_close.append(ind_fig)
 
         wandb.log(wandb_results, step=round_num + 1)
         print(f"Federated Round {round_num+1}/{num_rounds}, MNIST Train Loss: {mnist_train_loss_avg:.4f}, Fashion Train Loss: {fashion_train_loss_avg:.4f}, MNIST Test Loss: {server_mnist_test_loss_avg:.4f}, Fashion Test Loss: {server_fashion_test_loss_avg:.4f}")
+
+        # Close figures
+        for fig in figures_to_close:
+            plt.close(fig)
+        gc.collect()
     
     #wandb.finish()
     return server.global_model
