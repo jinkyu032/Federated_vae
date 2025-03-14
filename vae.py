@@ -11,6 +11,7 @@ from collections import OrderedDict
 import cloudpickle
 from scipy.stats import norm
 import copy
+import gc
 
 @dataclass
 class Config:
@@ -95,8 +96,17 @@ class Config:
     def federated_rounds200_epochs1_geld(cls):
         return cls(name="federated_rounds200_epochs1_geld", num_epochs={}, num_rounds=200, local_epochs=1)
     
+    @classmethod
+    def firstcentral_then_fed_encoder(cls):
+        return cls(name="firstcentral_then_fed_encoder", num_epochs={"combined": 100}, num_rounds=200, local_epochs=1)
 
-    
+    @classmethod
+    def firstcentral_then_fed_decoder(cls):
+        return cls(name="firstcentral_then_fed_decoder", num_epochs={"combined": 100}, num_rounds=200, local_epochs=1) 
+
+    @classmethod
+    def firstcentral_then_fed_all(cls):
+        return cls(name="firstcentral_then_fed_all", num_epochs={"combined": 100}, num_rounds=200, local_epochs=1)
 
     def asdict(self):
         return asdict(self)
@@ -207,6 +217,19 @@ def compute_loss(model, data_loader):
             total_loss += loss.item()
     return total_loss / len(data_loader.dataset)
 
+
+def compute_average_var(model, data_loader):
+    model.eval()
+    total_var = 0
+    data_num = 0
+    with torch.no_grad():
+        for data, _ in data_loader:
+            data = data.to(device)
+            mu, log_var, z = model.encoder_forward(data)
+            total_var += ((torch.exp(log_var))).sum()
+            data_num += len(data)
+    return total_var / data_num
+
 # Get latent representations
 def get_latent_representations(model, data_loader):
     model.eval()
@@ -217,6 +240,7 @@ def get_latent_representations(model, data_loader):
             _, mu, _, _ = model(data)
             mus.append(mu.cpu().numpy())
             labels.append(targets.numpy())
+    
     return np.concatenate(mus, axis=0), np.concatenate(labels, axis=0)
 
 # Plot latent space
@@ -371,6 +395,12 @@ def train_centralized(cfg):
             fashion_recon_fig = plot_callback(model, fashion_loader)
             manifold_fig = visualize_manifold(model)
 
+            #log average var
+            MNIST_var = compute_average_var(model, mnist_loader)
+            Fashion_var = compute_average_var(model, fashion_loader)
+            combined_var = compute_average_var(model, centralized_loader)
+
+
             wandb.log({
                 #"epoch": epoch + 1,
                 "central_train_loss": train_loss_avg,
@@ -380,7 +410,9 @@ def train_centralized(cfg):
                 "mnist_reconstructions": wandb.Image(mnist_recon_fig, caption="MNIST Reconstructions"),
                 "fashion_reconstructions": wandb.Image(fashion_recon_fig, caption="Fashion-MNIST Reconstructions"),
                 "manifold": wandb.Image(manifold_fig, caption="Manifold"),
-                
+                "MNIST_var": MNIST_var,
+                "Fashion_var": Fashion_var,
+                "Combined_var": combined_var,
             },
             step=epoch + 1)
             plt.close(latent_fig)
@@ -394,7 +426,7 @@ def train_centralized(cfg):
     return model
 
 
-def analyze_model(model, cfg, title):
+def analyze_model(cfg, model, title):
     model.eval()
     with torch.no_grad():
         plot_callback = PlotCallback(num_samples=cfg.num_samples)
@@ -423,6 +455,41 @@ class Client:
                 data = data.to(device)
                 self.optimizer.zero_grad()
                 recon_batch, mu, log_var, z = self.model(data)
+                loss = vae_loss(recon_batch, data, mu, log_var)
+                loss.backward()
+                self.optimizer.step()
+        return self.model.state_dict()
+
+    
+    def train_encoderonly(self, global_weights, local_epochs):
+        self.model.load_state_dict(global_weights)
+        self.model.train()
+        #freeze decoder
+        for param in self.model.decoder.parameters():
+            param.requires_grad = False
+        for _ in range(local_epochs):
+            for data, _ in self.data_loader:
+                data = data.to(device)
+                self.optimizer.zero_grad()
+                mu, log_var, z = self.model.encoder_forward(data)
+                recon_batch = self.model.decoder_forward(z)
+                loss = vae_loss(recon_batch, data, mu, log_var)
+                loss.backward()
+                self.optimizer.step()
+        return self.model.state_dict()
+
+    def train_decoderonly(self, global_weights, local_epochs):
+        self.model.load_state_dict(global_weights)
+        self.model.train()
+        #freeze encoder
+        for param in self.model.encoder.parameters():
+            param.requires_grad = False
+        for _ in range(local_epochs):
+            for data, _ in self.data_loader:
+                data = data.to(device)
+                self.optimizer.zero_grad()
+                mu, log_var, z = self.model.encoder_forward(data)
+                recon_batch = self.model.decoder_forward(z)
                 loss = vae_loss(recon_batch, data, mu, log_var)
                 loss.backward()
                 self.optimizer.step()
@@ -490,23 +557,28 @@ class Client:
 
 # Server class for federated learning
 class Server:
-    def __init__(self):
-        self.global_model = VAE().to(device)
+    def __init__(self, global_model=None):
+        if global_model is None:
+            self.global_model = VAE().to(device)
+        else:
+            self.global_model = global_model
 
     def aggregate(self, client_weights):
         avg_weights = {key: sum(w[key] for w in client_weights) / len(client_weights) for key in client_weights[0].keys()}
         self.global_model.load_state_dict(avg_weights)
 
 # Federated training
-def train_federated(cfg):
+def train_federated(cfg, server: Server=None, wandb_initstep=0):
+    if server is None:
+        server = Server()
     #wandb.init(project="vae", name="federated_run")
     MNISTClient = Client(mnist_loader)
     FashionClient = Client(fashion_loader)
-    server = Server()
     num_rounds = cfg.num_rounds
     local_epochs = cfg.local_epochs
     
     for round_num in range(num_rounds):
+        wandb_results = {}
         if "legd" in cfg.name:
             client_weights = [
                 MNISTClient.train_legd(server.global_model, local_epochs),
@@ -518,6 +590,21 @@ def train_federated(cfg):
                 MNISTClient.train_geld(server.global_model, local_epochs),
                 FashionClient.train_geld(server.global_model, local_epochs)
             ]
+        elif "firstcentral_then_fed_encoder" in cfg.name:
+            client_weights = [
+                MNISTClient.train_encoderonly(server.global_model.state_dict(), local_epochs),
+                FashionClient.train_decoderonly(server.global_model.state_dict(), local_epochs)
+            ]
+        elif "firstcentral_then_fed_decoder" in cfg.name:
+            client_weights = [
+                MNISTClient.train_decoderonly(server.global_model.state_dict(), local_epochs),
+                FashionClient.train_encoderonly(server.global_model.state_dict(), local_epochs)
+            ]
+        elif "firstcentral_then_fed_all" in cfg.name:
+            client_weights = [
+                MNISTClient.train(server.global_model.state_dict(), local_epochs),
+                FashionClient.train(server.global_model.state_dict(), local_epochs)
+            ]
         else:
             client_weights = [
                 MNISTClient.train(server.global_model.state_dict(), local_epochs),
@@ -525,65 +612,91 @@ def train_federated(cfg):
             ]
         server.aggregate(client_weights)
         
-        mnist_train_loss_avg = compute_loss(MNISTClient.model, mnist_loader) 
-        fashion_train_loss_avg = compute_loss(FashionClient.model, fashion_loader)
+        ## Eval && analysis
+        figures_to_close = []
         
-        #analyzie MNISTClient.model
-        MNISTClient_latent_fig, MNISTClient_mnist_recon_fig, MNISTClient_fashion_recon_fig, MNISTClient_manifold_fig, MNISTClient_mnist_test_loss_avg, MNISTClient_fashion_test_loss_avg = analyze_model(MNISTClient.model, cfg, f"Client 1 Round {round_num+1}")
 
-        #analyzie FashionClient.model
-        FashionClient_latent_fig, FashionClient_mnist_recon_fig, FashionClient_fashion_recon_fig, FashionClient_manifold_fig, FashionClient_mnist_test_loss_avg, FashionClient_fashion_test_loss_avg = analyze_model(FashionClient.model, cfg, f"Client 2 Round {round_num+1}")
+        # Analyzie MNISTClient.model
+        MNISTClient_latent_fig, MNISTClient_mnist_recon_fig, MNISTClient_fashion_recon_fig, MNISTClient_manifold_fig, MNISTClient_mnist_test_loss_avg, MNISTClient_fashion_test_loss_avg = analyze_model(cfg, MNISTClient.model, f"Client 1 Round {round_num+1}")
 
-        #analyzie server.global_model
-        server_latent_fig, server_mnist_recon_fig, server_fashion_recon_fig, server_manifold_fig, server_mnist_test_loss_avg, server_fashion_test_loss_avg = analyze_model(server.global_model, cfg, f"Server Round {round_num+1}")
+        # Analyzie FashionClient.model
+        FashionClient_latent_fig, FashionClient_mnist_recon_fig, FashionClient_fashion_recon_fig, FashionClient_manifold_fig, FashionClient_mnist_test_loss_avg, FashionClient_fashion_test_loss_avg = analyze_model(cfg, FashionClient.model, f"Client 2 Round {round_num+1}")
 
-
-        #fig = plot_latent_space(server.global_model, mnist_test_loader, fashion_test_loader, f"Federated Round {round_num+1}")
-        wandb.log({
-            #"round": round_num + 1,
-            "MNIST_train_loss": mnist_train_loss_avg,
-            "Fashion_train_loss": fashion_train_loss_avg,
-            "MNIST_test_loss": server_mnist_test_loss_avg,
-            "Fashion_test_loss": server_fashion_test_loss_avg,
+        wandb_results.update({
             "MNISTClient_latent_space": wandb.Image(MNISTClient_latent_fig, caption="Client 1: MNIST (o), Fashion-MNIST (x)"),
             "MNISTClient_mnist_reconstructions": wandb.Image(MNISTClient_mnist_recon_fig, caption="Client 1 MNIST Reconstructions"),
             "MNISTClient_fashion_reconstructions": wandb.Image(MNISTClient_fashion_recon_fig, caption="Client 1 Fashion-MNIST Reconstructions"),
             "MNISTClient_manifold": wandb.Image(MNISTClient_manifold_fig, caption="Client 1 Manifold"),
+            "MNISTClient_mnist_test_loss": MNISTClient_mnist_test_loss_avg,
+            "MNISTClient_fashion_test_loss": MNISTClient_fashion_test_loss_avg,
             "FashionClient_latent_space": wandb.Image(FashionClient_latent_fig, caption="Client 2: MNIST (o), Fashion-MNIST (x)"),
             "FashionClient_mnist_reconstructions": wandb.Image(FashionClient_mnist_recon_fig, caption="Client 2 MNIST Reconstructions"),
             "FashionClient_fashion_reconstructions": wandb.Image(FashionClient_fashion_recon_fig, caption="Client 2 Fashion-MNIST Reconstructions"),
             "FashionClient_manifold": wandb.Image(FashionClient_manifold_fig, caption="Client 2 Manifold"),
+            "FashionClient_mnist_test_loss": FashionClient_mnist_test_loss_avg,
+            "FashionClient_fashion_test_loss": FashionClient_fashion_test_loss_avg,
+        })
+        
+        figures_to_close.extend([MNISTClient_latent_fig, MNISTClient_mnist_recon_fig, MNISTClient_fashion_recon_fig, MNISTClient_manifold_fig, FashionClient_latent_fig, FashionClient_mnist_recon_fig, FashionClient_fashion_recon_fig, FashionClient_manifold_fig])
+
+        mnist_train_loss_avg = compute_loss(MNISTClient.model, mnist_loader)
+        fashion_train_loss_avg = compute_loss(FashionClient.model, fashion_loader)
+
+        wandb_results.update({
+            "MNIST_train_loss": mnist_train_loss_avg,
+            "Fashion_train_loss": fashion_train_loss_avg,
+        })
+        
+        # Analyzie server.global_model
+        server_latent_fig, server_mnist_recon_fig, server_fashion_recon_fig, server_manifold_fig, server_mnist_test_loss_avg, server_fashion_test_loss_avg = analyze_model(cfg, server.global_model, f"Server Round {round_num+1}")
+
+        wandb_results.update({
+            "MNIST_test_loss": server_mnist_test_loss_avg,
+            "Fashion_test_loss": server_fashion_test_loss_avg,
             "server_latent_space": wandb.Image(server_latent_fig, caption="Server: MNIST (o), Fashion-MNIST (x)"),
             "server_mnist_reconstructions": wandb.Image(server_mnist_recon_fig, caption="Server MNIST Reconstructions"),
             "server_fashion_reconstructions": wandb.Image(server_fashion_recon_fig, caption="Server Fashion-MNIST Reconstructions"),
             "server_manifold": wandb.Image(server_manifold_fig, caption="Server Manifold"),
-            "MNISTClient_mnist_test_loss": MNISTClient_mnist_test_loss_avg,
-            "MNISTClient_fashion_test_loss": MNISTClient_fashion_test_loss_avg,
-            "FashionClient_mnist_test_loss": FashionClient_mnist_test_loss_avg,
-            "FashionClient_fashion_test_loss": FashionClient_fashion_test_loss_avg,
-            "server_mnist_test_loss": server_mnist_test_loss_avg,
-            "server_fashion_test_loss": server_fashion_test_loss_avg
-        },
-        step=round_num + 1)
+        })
+        figures_to_close.extend([server_latent_fig, server_mnist_recon_fig, server_fashion_recon_fig, server_manifold_fig])
+
+
+        wandb.log(wandb_results, step=round_num + 1)
         print(f"Federated Round {round_num+1}/{num_rounds}, MNIST Train Loss: {mnist_train_loss_avg:.4f}, Fashion Train Loss: {fashion_train_loss_avg:.4f}, MNIST Test Loss: {server_mnist_test_loss_avg:.4f}, Fashion Test Loss: {server_fashion_test_loss_avg:.4f}")
+
+        # Close figures
+        for fig in figures_to_close:
+            plt.close(fig)
+        gc.collect()
     
     #wandb.finish()
     return server.global_model
 
+
+# First, train the full vae encoder and decoder with centralized data. Then, train the encoder from scratch using fedavg while keeping the decoder fixed.
+# Finally, train the decoder from scratch using fedavg while keeping the encoder fixed.
+# This is the upperbound case for training the parameters with fedavg, because we have the ideal decoder or encoder in each case.
+def train_upperbound(cfg):
+    central_model = train_centralized(cfg)
+    fed_model = train_federated(cfg, server=Server(global_model=central_model))
+    return fed_model
 # Run training
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--name", type=str, default="central")
     args = parser.parse_args()
     cfg = get_config(exp_name=args.name)
-    wandb.init(project=cfg.project, name=cfg.name)
+    wandb.init(entity="FedRL-SNU", project=cfg.project, name=cfg.name)
 
     # wandb config
     wandb.config.update(cfg.asdict())
     global device 
     device = cfg.device
 
-    if 'central' in cfg.name:
+    if 'firstcentral_then_fed' in cfg.name:
+        upperbound_model = train_upperbound(cfg)
+
+    elif 'central' in cfg.name:
         centralized_model = train_centralized(cfg)
     elif "federated" in cfg.name:
         federated_model = train_federated(cfg)

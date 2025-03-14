@@ -13,7 +13,7 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 
 from utils.losses import compute_loss
-from utils.eval import analyze_model
+from utils.eval import analyze_model, log_analysis
 from utils.data import get_dataloaders
 from clients import get_client
 from servers import get_server
@@ -22,6 +22,7 @@ from utils.visualize import plot_latent_per_client
 
 from tqdm import tqdm
 import gc
+
 
 
 @dataclass
@@ -115,27 +116,33 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         
         if cfg.analyze_local_models_before_update:
             # Analyzie MNISTClient.model
-            MNISTClient_latent_fig, MNISTClient_mnist_recon_fig, MNISTClient_fashion_recon_fig, MNISTClient_manifold_fig, MNISTClient_mnist_test_loss_avg, MNISTClient_fashion_test_loss_avg = analyze_model(cfg, MNISTClient.model, f"Client 1 Round {round_num+1}", data_loaders=data_loaders)
+            #MNISTClient_latent_fig, MNISTClient_mnist_recon_fig, MNISTClient_fashion_recon_fig, MNISTClient_manifold_fig, MNISTClient_mnist_test_loss_avg, MNISTClient_fashion_test_loss_avg = analyze_model(cfg, MNISTClient.model, f"Client 1 Round {round_num+1}", data_loaders=data_loaders)
+            MNIST_analysis = analyze_model(cfg, MNISTClient.model, f"Client 1 Round {round_num+1}", data_loaders=data_loaders, prefix="MNISTClient_")
+            wandb_results, figures_to_close = log_analysis(wandb_results, MNIST_analysis, figures_to_close)
 
-            # Analyzie FashionClient.model
-            FashionClient_latent_fig, FashionClient_mnist_recon_fig, FashionClient_fashion_recon_fig, FashionClient_manifold_fig, FashionClient_mnist_test_loss_avg, FashionClient_fashion_test_loss_avg = analyze_model(cfg, FashionClient.model, f"Client 2 Round {round_num+1}", data_loaders=data_loaders)
 
-            wandb_results.update({
-                "MNISTClient_latent_space": wandb.Image(MNISTClient_latent_fig, caption="Client 1: MNIST (o), Fashion-MNIST (x)"),
-                "MNISTClient_mnist_reconstructions": wandb.Image(MNISTClient_mnist_recon_fig, caption="Client 1 MNIST Reconstructions"),
-                "MNISTClient_fashion_reconstructions": wandb.Image(MNISTClient_fashion_recon_fig, caption="Client 1 Fashion-MNIST Reconstructions"),
-                "MNISTClient_manifold": wandb.Image(MNISTClient_manifold_fig, caption="Client 1 Manifold"),
-                "MNISTClient_mnist_test_loss": MNISTClient_mnist_test_loss_avg,
-                "MNISTClient_fashion_test_loss": MNISTClient_fashion_test_loss_avg,
-                "FashionClient_latent_space": wandb.Image(FashionClient_latent_fig, caption="Client 2: MNIST (o), Fashion-MNIST (x)"),
-                "FashionClient_mnist_reconstructions": wandb.Image(FashionClient_mnist_recon_fig, caption="Client 2 MNIST Reconstructions"),
-                "FashionClient_fashion_reconstructions": wandb.Image(FashionClient_fashion_recon_fig, caption="Client 2 Fashion-MNIST Reconstructions"),
-                "FashionClient_manifold": wandb.Image(FashionClient_manifold_fig, caption="Client 2 Manifold"),
-                "FashionClient_mnist_test_loss": FashionClient_mnist_test_loss_avg,
-                "FashionClient_fashion_test_loss": FashionClient_fashion_test_loss_avg,
-            })
             
-            figures_to_close.extend([MNISTClient_latent_fig, MNISTClient_mnist_recon_fig, MNISTClient_fashion_recon_fig, MNISTClient_manifold_fig, FashionClient_latent_fig, FashionClient_mnist_recon_fig, FashionClient_fashion_recon_fig, FashionClient_manifold_fig])
+            # Analyzie FashionClient.model
+            #FashionClient_latent_fig, FashionClient_mnist_recon_fig, FashionClient_fashion_recon_fig, FashionClient_manifold_fig, FashionClient_mnist_test_loss_avg, FashionClient_fashion_test_loss_avg = analyze_model(cfg, FashionClient.model, f"Client 2 Round {round_num+1}", data_loaders=data_loaders)
+            Fashion_analysis = analyze_model(cfg, FashionClient.model, f"Client 2 Round {round_num+1}", data_loaders=data_loaders, prefix="FashionClient_")
+            wandb_results, figures_to_close = log_analysis(wandb_results, Fashion_analysis, figures_to_close)
+            
+            # wandb_results.update({
+            #     "MNISTClient_latent_space": wandb.Image(MNISTClient_latent_fig, caption="Client 1: MNIST (o), Fashion-MNIST (x)"),
+            #     "MNISTClient_mnist_reconstructions": wandb.Image(MNISTClient_mnist_recon_fig, caption="Client 1 MNIST Reconstructions"),
+            #     "MNISTClient_fashion_reconstructions": wandb.Image(MNISTClient_fashion_recon_fig, caption="Client 1 Fashion-MNIST Reconstructions"),
+            #     "MNISTClient_manifold": wandb.Image(MNISTClient_manifold_fig, caption="Client 1 Manifold"),
+            #     "MNISTClient_mnist_test_loss": MNISTClient_mnist_test_loss_avg,
+            #     "MNISTClient_fashion_test_loss": MNISTClient_fashion_test_loss_avg,
+            #     "FashionClient_latent_space": wandb.Image(FashionClient_latent_fig, caption="Client 2: MNIST (o), Fashion-MNIST (x)"),
+            #     "FashionClient_mnist_reconstructions": wandb.Image(FashionClient_mnist_recon_fig, caption="Client 2 MNIST Reconstructions"),
+            #     "FashionClient_fashion_reconstructions": wandb.Image(FashionClient_fashion_recon_fig, caption="Client 2 Fashion-MNIST Reconstructions"),
+            #     "FashionClient_manifold": wandb.Image(FashionClient_manifold_fig, caption="Client 2 Manifold"),
+            #     "FashionClient_mnist_test_loss": FashionClient_mnist_test_loss_avg,
+            #     "FashionClient_fashion_test_loss": FashionClient_fashion_test_loss_avg,
+            # })
+            
+            #figures_to_close.extend([MNISTClient_latent_fig, MNISTClient_mnist_recon_fig, MNISTClient_fashion_recon_fig, MNISTClient_manifold_fig, FashionClient_latent_fig, FashionClient_mnist_recon_fig, FashionClient_fashion_recon_fig, FashionClient_manifold_fig])
 
         # Update Client Models
         MNISTClient.update_model(server.global_model.state_dict())
@@ -151,39 +158,45 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         
         if not cfg.analyze_local_models_before_update:
             # Analyzie MNISTClient.model
-            MNISTClient_latent_fig, MNISTClient_mnist_recon_fig, MNISTClient_fashion_recon_fig, MNISTClient_manifold_fig, MNISTClient_mnist_test_loss_avg, MNISTClient_fashion_test_loss_avg = analyze_model(cfg, MNISTClient.model, f"Client 1 Round {round_num+1}", data_loaders=data_loaders)
+            #MNISTClient_latent_fig, MNISTClient_mnist_recon_fig, MNISTClient_fashion_recon_fig, MNISTClient_manifold_fig, MNISTClient_mnist_test_loss_avg, MNISTClient_fashion_test_loss_avg = analyze_model(cfg, MNISTClient.model, f"Client 1 Round {round_num+1}", data_loaders=data_loaders)
+            MNIST_analysis = analyze_model(cfg, MNISTClient.model, f"Client 1 Round {round_num+1}", data_loaders=data_loaders, prefix="MNISTClient_")
+            wandb_results, figures_to_close = log_analysis(wandb_results, MNIST_analysis, figures_to_close)
 
             # Analyzie FashionClient.model
-            FashionClient_latent_fig, FashionClient_mnist_recon_fig, FashionClient_fashion_recon_fig, FashionClient_manifold_fig, FashionClient_mnist_test_loss_avg, FashionClient_fashion_test_loss_avg = analyze_model(cfg, FashionClient.model, f"Client 2 Round {round_num+1}", data_loaders=data_loaders)
+            #FashionClient_latent_fig, FashionClient_mnist_recon_fig, FashionClient_fashion_recon_fig, FashionClient_manifold_fig, FashionClient_mnist_test_loss_avg, FashionClient_fashion_test_loss_avg = analyze_model(cfg, FashionClient.model, f"Client 2 Round {round_num+1}", data_loaders=data_loaders)
+            Fashion_analysis = analyze_model(cfg, FashionClient.model, f"Client 2 Round {round_num+1}", data_loaders=data_loaders, prefix="FashionClient_")
+            wandb_results, figures_to_close = log_analysis(wandb_results, Fashion_analysis, figures_to_close)
 
-            wandb_results.update({
-                "MNISTClient_latent_space": wandb.Image(MNISTClient_latent_fig, caption="Client 1: MNIST (o), Fashion-MNIST (x)"),
-                "MNISTClient_mnist_reconstructions": wandb.Image(MNISTClient_mnist_recon_fig, caption="Client 1 MNIST Reconstructions"),
-                "MNISTClient_fashion_reconstructions": wandb.Image(MNISTClient_fashion_recon_fig, caption="Client 1 Fashion-MNIST Reconstructions"),
-                "MNISTClient_manifold": wandb.Image(MNISTClient_manifold_fig, caption="Client 1 Manifold"),
-                "MNISTClient_mnist_test_loss": MNISTClient_mnist_test_loss_avg,
-                "MNISTClient_fashion_test_loss": MNISTClient_fashion_test_loss_avg,
-                "FashionClient_latent_space": wandb.Image(FashionClient_latent_fig, caption="Client 2: MNIST (o), Fashion-MNIST (x)"),
-                "FashionClient_mnist_reconstructions": wandb.Image(FashionClient_mnist_recon_fig, caption="Client 2 MNIST Reconstructions"),
-                "FashionClient_fashion_reconstructions": wandb.Image(FashionClient_fashion_recon_fig, caption="Client 2 Fashion-MNIST Reconstructions"),
-                "FashionClient_manifold": wandb.Image(FashionClient_manifold_fig, caption="Client 2 Manifold"),
-                "FashionClient_mnist_test_loss": FashionClient_mnist_test_loss_avg,
-                "FashionClient_fashion_test_loss": FashionClient_fashion_test_loss_avg,
-            })
-            figures_to_close.extend([MNISTClient_latent_fig, MNISTClient_mnist_recon_fig, MNISTClient_fashion_recon_fig, MNISTClient_manifold_fig, FashionClient_latent_fig, FashionClient_mnist_recon_fig, FashionClient_fashion_recon_fig, FashionClient_manifold_fig])
+            # wandb_results.update({
+            #     "MNISTClient_latent_space": wandb.Image(MNISTClient_latent_fig, caption="Client 1: MNIST (o), Fashion-MNIST (x)"),
+            #     "MNISTClient_mnist_reconstructions": wandb.Image(MNISTClient_mnist_recon_fig, caption="Client 1 MNIST Reconstructions"),
+            #     "MNISTClient_fashion_reconstructions": wandb.Image(MNISTClient_fashion_recon_fig, caption="Client 1 Fashion-MNIST Reconstructions"),
+            #     "MNISTClient_manifold": wandb.Image(MNISTClient_manifold_fig, caption="Client 1 Manifold"),
+            #     "MNISTClient_mnist_test_loss": MNISTClient_mnist_test_loss_avg,
+            #     "MNISTClient_fashion_test_loss": MNISTClient_fashion_test_loss_avg,
+            #     "FashionClient_latent_space": wandb.Image(FashionClient_latent_fig, caption="Client 2: MNIST (o), Fashion-MNIST (x)"),
+            #     "FashionClient_mnist_reconstructions": wandb.Image(FashionClient_mnist_recon_fig, caption="Client 2 MNIST Reconstructions"),
+            #     "FashionClient_fashion_reconstructions": wandb.Image(FashionClient_fashion_recon_fig, caption="Client 2 Fashion-MNIST Reconstructions"),
+            #     "FashionClient_manifold": wandb.Image(FashionClient_manifold_fig, caption="Client 2 Manifold"),
+            #     "FashionClient_mnist_test_loss": FashionClient_mnist_test_loss_avg,
+            #     "FashionClient_fashion_test_loss": FashionClient_fashion_test_loss_avg,
+            # })
+            #figures_to_close.extend([MNISTClient_latent_fig, MNISTClient_mnist_recon_fig, MNISTClient_fashion_recon_fig, MNISTClient_manifold_fig, FashionClient_latent_fig, FashionClient_mnist_recon_fig, FashionClient_fashion_recon_fig, FashionClient_manifold_fig])
 
         # Analyzie server.global_model
-        server_latent_fig, server_mnist_recon_fig, server_fashion_recon_fig, server_manifold_fig, server_mnist_test_loss_avg, server_fashion_test_loss_avg = analyze_model(cfg, server.global_model, f"Server Round {round_num+1}", data_loaders=data_loaders)
+        #server_latent_fig, server_mnist_recon_fig, server_fashion_recon_fig, server_manifold_fig, server_mnist_test_loss_avg, server_fashion_test_loss_avg = analyze_model(cfg, server.global_model, f"Server Round {round_num+1}", data_loaders=data_loaders)
+        server_analysis = analyze_model(cfg, server.global_model, f"Server Round {round_num+1}", data_loaders=data_loaders, prefix="server_")
+        wandb_results, figures_to_close = log_analysis(wandb_results, server_analysis, figures_to_close)
 
-        wandb_results.update({
-            "MNIST_test_loss": server_mnist_test_loss_avg,
-            "Fashion_test_loss": server_fashion_test_loss_avg,
-            "server_latent_space": wandb.Image(server_latent_fig, caption="Server: MNIST (o), Fashion-MNIST (x)"),
-            "server_mnist_reconstructions": wandb.Image(server_mnist_recon_fig, caption="Server MNIST Reconstructions"),
-            "server_fashion_reconstructions": wandb.Image(server_fashion_recon_fig, caption="Server Fashion-MNIST Reconstructions"),
-            "server_manifold": wandb.Image(server_manifold_fig, caption="Server Manifold"),
-        })
-        figures_to_close.extend([server_latent_fig, server_mnist_recon_fig, server_fashion_recon_fig, server_manifold_fig])
+        # wandb_results.update({
+        #     "MNIST_test_loss": server_mnist_test_loss_avg,
+        #     "Fashion_test_loss": server_fashion_test_loss_avg,
+        #     "server_latent_space": wandb.Image(server_latent_fig, caption="Server: MNIST (o), Fashion-MNIST (x)"),
+        #     "server_mnist_reconstructions": wandb.Image(server_mnist_recon_fig, caption="Server MNIST Reconstructions"),
+        #     "server_fashion_reconstructions": wandb.Image(server_fashion_recon_fig, caption="Server Fashion-MNIST Reconstructions"),
+        #     "server_manifold": wandb.Image(server_manifold_fig, caption="Server Manifold"),
+        # })
+        # figures_to_close.extend([server_latent_fig, server_mnist_recon_fig, server_fashion_recon_fig, server_manifold_fig])
 
         if cfg.plot_independent_latents:
             ind_fig = plot_latent_per_client(MNISTClient.model, FashionClient.model, data_loaders, title=f"Federated Round {round_num+1}", device=cfg.device)
@@ -193,7 +206,7 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
             figures_to_close.append(ind_fig)
 
         wandb.log(wandb_results, step=round_num + 1)
-        print(f"Federated Round {round_num+1}/{num_rounds}, MNIST Train Loss: {mnist_train_loss_avg:.4f}, Fashion Train Loss: {fashion_train_loss_avg:.4f}, MNIST Test Loss: {server_mnist_test_loss_avg:.4f}, Fashion Test Loss: {server_fashion_test_loss_avg:.4f}")
+        print(f"Federated Round {round_num+1}/{num_rounds}, MNIST Train Loss: {mnist_train_loss_avg:.4f}, Fashion Train Loss: {fashion_train_loss_avg:.4f}, MNIST Test Loss: {wandb_results['server_mnist_test_loss']:.4f}, Fashion Test Loss: {wandb_results['server_fashion_test_loss']:.4f}")
 
         # Close figures
         for fig in figures_to_close:

@@ -136,9 +136,9 @@ class PlotCallback:
 
 
 # visualize the latent space
-def visualize_manifold(model, num_samples=20, device=None):
-    x = norm.ppf(np.linspace(0.011, 0.99, num_samples))
-    y = norm.ppf(np.linspace(0.011, 0.99, num_samples))
+def visualize_manifold(model, num_samples=20, device=None, offset = (0, 0)):
+    x = norm.ppf(np.linspace(0.011, 0.99, num_samples)) + offset[0]
+    y = norm.ppf(np.linspace(0.011, 0.99, num_samples)) + offset[1]
     inputs = [(i, j) for i in x for j in y]
     inputs_t = torch.tensor(inputs, dtype=torch.float32).to(device)  
     model.eval()  
