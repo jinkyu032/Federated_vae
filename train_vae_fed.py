@@ -63,6 +63,9 @@ class Config:
     # Plot independent latents
     plot_independent_latents: bool = True
 
+    # Distance Based loss
+    alpha: float = 0
+    sample_p: float = 0
 
 
     @classmethod
