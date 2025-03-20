@@ -20,10 +20,11 @@ class BaseClient:
         # self.model.load_state_dict(global_weights)
         self.model.train()
         for _ in range(local_epochs):
-            for data, _ in self.data_loader:
+            for data, target in self.data_loader:
                 data = data.to(self.device)
+                target = target.to(self.device)
                 self.optimizer.zero_grad()
-                recon_batch, mu, log_var, z = self.model(data)
+                recon_batch, mu, log_var, z = self.model(data, target)
                 loss = self.vae_loss(recon_batch, data, mu, log_var, mu_target=self.vae_mu_target)
                 loss.backward()
                 self.optimizer.step()

@@ -22,7 +22,7 @@ from utils.visualize import plot_latent_per_client
 
 from tqdm import tqdm
 import gc
-
+import os
 
 
 @dataclass
@@ -30,7 +30,6 @@ class Config:
     ## General Configs  
     wandb: bool = True
     num_samples: int = 10
-    save_dir: str = None
     project: str = "vae"
     name: str = "central_combined"
     device: str = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -60,18 +59,18 @@ class Config:
     eval_batch_size: int = 1000
     analyze_local_models_before_update: bool = False
 
+    ## Save Configs
+    save_dir: str = "/131_data/geeho/FedVAE"
+    save_interval: int = 10
+
     # Plot independent latents
     plot_independent_latents: bool = True
 
 
 
     @classmethod
-    def federated_rounds200_epochs1(cls):
-        return cls(name="federated_rounds200_epochs1", num_rounds=200, local_epochs=1)
-    
-    @classmethod
-    def federated_rounds200_epochs1_cvae(cls):
-        return cls(name="federated_rounds200_epochs1_cvae", num_rounds=200, local_epochs=1, conditional=True, client_type="base", mnist_vae_mu_target=0, fashion_vae_mu_target=0, analyze_local_models_before_update=True)
+    def centralized_rounds200_epochs1(cls):
+        return cls(name="centralized_mnist_rounds200_epochs1", num_rounds=200, local_epochs=1)
     
     @classmethod
     def federated_per_enc(cls):
@@ -95,10 +94,6 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
 
     # Get Clients
     MNISTClient = get_client(cfg, deepcopy(model), data_loaders["mnist_train"], cfg.mnist_vae_mu_target)
-    FashionClient = get_client(cfg, deepcopy(model), data_loaders["fashion_train"], cfg.fashion_vae_mu_target)
-
-    # Get Server
-    server = get_server(cfg, deepcopy(model))
 
     num_rounds = cfg.num_rounds
     local_epochs = cfg.local_epochs
@@ -108,65 +103,40 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         # Train Clients
         client_weights = [
             MNISTClient.train(local_epochs),
-            FashionClient.train(local_epochs)
         ]
 
-        # Aggregate Client Weights
-        server.aggregate(client_weights)
+
+        
         
         ## Eval && analysis
         figures_to_close = []
         
-        if cfg.analyze_local_models_before_update:
-            # Analyzie MNISTClient.model
-            MNIST_analysis = analyze_model(cfg, MNISTClient.model, f"Client 1 Round {round_num+1}", data_loaders=data_loaders, prefix="MNISTClient_")
-            wandb_results, figures_to_close = log_analysis(wandb_results, MNIST_analysis, figures_to_close)
-            
-            # Analyzie FashionClient.model
-            Fashion_analysis = analyze_model(cfg, FashionClient.model, f"Client 2 Round {round_num+1}", data_loaders=data_loaders, prefix="FashionClient_")
-            wandb_results, figures_to_close = log_analysis(wandb_results, Fashion_analysis, figures_to_close)
-
-        # Update Client Models
-        MNISTClient.update_model(server.global_model.state_dict())
-        FashionClient.update_model(server.global_model.state_dict())
-        
         mnist_train_loss_avg = compute_loss(MNISTClient.model, mnist_loader, cfg.device, mu_target=cfg.mnist_vae_mu_target) 
-        fashion_train_loss_avg = compute_loss(FashionClient.model, fashion_loader, cfg.device, mu_target=cfg.fashion_vae_mu_target)
 
         wandb_results.update({
             "MNIST_train_loss": mnist_train_loss_avg,
-            "Fashion_train_loss": fashion_train_loss_avg,
         })
         
-        if not cfg.analyze_local_models_before_update:
-            # Analyzie MNISTClient.model
-            MNIST_analysis = analyze_model(cfg, MNISTClient.model, f"Client 1 Round {round_num+1}", data_loaders=data_loaders, prefix="MNISTClient_")
-            wandb_results, figures_to_close = log_analysis(wandb_results, MNIST_analysis, figures_to_close)
-
-            # Analyzie FashionClient.model
-            Fashion_analysis = analyze_model(cfg, FashionClient.model, f"Client 2 Round {round_num+1}", data_loaders=data_loaders, prefix="FashionClient_")
-            wandb_results, figures_to_close = log_analysis(wandb_results, Fashion_analysis, figures_to_close)
-
-        # Analyzie server.global_model
-        server_analysis = analyze_model(cfg, server.global_model, f"Server Round {round_num+1}", data_loaders=data_loaders, prefix="server_")
-        wandb_results, figures_to_close = log_analysis(wandb_results, server_analysis, figures_to_close)
-
-        if cfg.plot_independent_latents:
-            ind_fig = plot_latent_per_client(MNISTClient.model, FashionClient.model, data_loaders, title=f"Federated Round {round_num+1}", device=cfg.device)
-            wandb_results.update({
-                "independent_latents": wandb.Image(ind_fig, caption="Independent Latents"),
-            })
-            figures_to_close.append(ind_fig)
+        # Analyzie MNISTClient.model
+        #MNISTClient_latent_fig, MNISTClient_mnist_recon_fig, MNISTClient_fashion_recon_fig, MNISTClient_manifold_fig, MNISTClient_mnist_test_loss_avg, MNISTClient_fashion_test_loss_avg = analyze_model(cfg, MNISTClient.model, f"Client 1 Round {round_num+1}", data_loaders=data_loaders)
+        MNIST_analysis = analyze_model(cfg, MNISTClient.model, f"Client 1 Round {round_num+1}", data_loaders=data_loaders, prefix="MNISTClient_")
+        wandb_results, figures_to_close = log_analysis(wandb_results, MNIST_analysis, figures_to_close)
 
         wandb.log(wandb_results, step=round_num + 1)
-        print(f"Federated Round {round_num+1}/{num_rounds}, MNIST Train Loss: {mnist_train_loss_avg:.4f}, Fashion Train Loss: {fashion_train_loss_avg:.4f}, MNIST Test Loss: {wandb_results['server_mnist_test_loss']:.4f}, Fashion Test Loss: {wandb_results['server_fashion_test_loss']:.4f}")
+        print(f"Centralized Round {round_num+1}/{num_rounds}, MNIST Train Loss: {mnist_train_loss_avg:.4f}")
 
         # Close figures
         for fig in figures_to_close:
             plt.close(fig)
         gc.collect()
+
+        if round_num % cfg.save_interval == 0:
+            save_path = os.path.join(cfg.save_dir, "mnist", cfg.name, f"round_{round_num}.pth")
+            os.makedirs(os.path.dirname(save_path), exist_ok=True)
+            torch.save({"state_dict": MNISTClient.model.state_dict(), "round": round_num}, save_path)    
     
-    return server.global_model
+    #wandb.finish()
+    return MNISTClient.model
 
 # Run training
 if __name__ == "__main__":

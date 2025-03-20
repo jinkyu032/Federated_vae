@@ -17,20 +17,21 @@ def analyze_model(cfg, model, title, data_loaders: Dict[str, DataLoader],prefix=
     result_dict = {}
     model.eval()
     with torch.no_grad():
-        plot_callback = PlotCallback(num_samples=cfg.num_samples, device=cfg.device)
-        mnist_test_loss_avg = (compute_loss(model, mnist_test_loader, cfg.device))
-        fashion_test_loss_avg = (compute_loss(model, fashion_test_loader, cfg.device))
+        plot_callback = PlotCallback(cfg, num_samples=cfg.num_samples, device=cfg.device)
+        mnist_test_loss, mnist_test_recon_loss, mnist_test_kl_loss = (compute_loss(model, mnist_test_loader, cfg.device))
+        fashion_test_loss, fashion_test_recon_loss, fashion_test_kl_loss = (compute_loss(model, fashion_test_loader, cfg.device))
         latent_fig = plot_latent_space(model, mnist_test_loader, fashion_test_loader, title, cfg.device)
         mnist_recon_fig = plot_callback(model, mnist_train_loader)
         fashion_recon_fig = plot_callback(model, fashion_train_loader)
-        if cfg.mnist_vae_mu_target==cfg.fashion_vae_mu_target:
-            manifold_fig = visualize_manifold(model, device=cfg.device, offset=(cfg.mnist_vae_mu_target, cfg.mnist_vae_mu_target) )
-            result_dict[prefix + 'manifold'] = manifold_fig
-        else:
-            mnist_manifold_fig = visualize_manifold(model, device=cfg.device, offset=(cfg.mnist_vae_mu_target, cfg.mnist_vae_mu_target))
-            fashion_manifold_fig = visualize_manifold(model, device=cfg.device, offset=(cfg.fashion_vae_mu_target, cfg.fashion_vae_mu_target))
-            result_dict[prefix + 'mnist_manifold:mu_target='+str(cfg.mnist_vae_mu_target)] = mnist_manifold_fig
-            result_dict[prefix + 'fashion_manifold:mu_target='+str(cfg.fashion_vae_mu_target)] = fashion_manifold_fig
+        if not cfg.conditional:
+            if cfg.mnist_vae_mu_target==cfg.fashion_vae_mu_target:
+                manifold_fig = visualize_manifold(model, device=cfg.device, offset=(cfg.mnist_vae_mu_target, cfg.mnist_vae_mu_target) )
+                result_dict[prefix + 'manifold'] = manifold_fig
+            else:
+                mnist_manifold_fig = visualize_manifold(model, device=cfg.device, offset=(cfg.mnist_vae_mu_target, cfg.mnist_vae_mu_target))
+                fashion_manifold_fig = visualize_manifold(model, device=cfg.device, offset=(cfg.fashion_vae_mu_target, cfg.fashion_vae_mu_target))
+                result_dict[prefix + 'mnist_manifold:mu_target='+str(cfg.mnist_vae_mu_target)] = mnist_manifold_fig
+                result_dict[prefix + 'fashion_manifold:mu_target='+str(cfg.fashion_vae_mu_target)] = fashion_manifold_fig
 
 
 
@@ -38,8 +39,12 @@ def analyze_model(cfg, model, title, data_loaders: Dict[str, DataLoader],prefix=
     result_dict[prefix + 'mnist_reconstructions'] = mnist_recon_fig
     result_dict[prefix + 'fashion_reconstructions'] = fashion_recon_fig
     #result_dict[prefix + 'manifold_fig'] = manifold_fig
-    result_dict[prefix + 'mnist_test_loss'] = mnist_test_loss_avg
-    result_dict[prefix + 'fashion_test_loss'] = fashion_test_loss_avg
+    result_dict[prefix + 'mnist_test_loss'] = mnist_test_loss
+    result_dict[prefix + 'fashion_test_loss'] = fashion_test_loss
+    result_dict[prefix + 'mnist_test_recon_loss'] = mnist_test_recon_loss
+    result_dict[prefix + 'fashion_test_recon_loss'] = fashion_test_recon_loss
+    result_dict[prefix + 'mnist_test_kl_loss'] = mnist_test_kl_loss
+    result_dict[prefix + 'fashion_test_kl_loss'] = fashion_test_kl_loss
     return result_dict
     #return latent_fig, mnist_recon_fig, fashion_recon_fig, manifold_fig, mnist_test_loss_avg, fashion_test_loss_avg
 

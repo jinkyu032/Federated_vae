@@ -5,7 +5,7 @@ from scipy.stats import norm
 from torch.utils.data import DataLoader
 from typing import Dict
 
-__all__ = ['plot_latent_space', 'plot_latent_per_client', 'plot_latent_per_client']
+__all__ = ['plot_latent_space', 'plot_latent_per_client', 'plot_latent_per_client', 'plot_recontruction_from_noise']
 
 # Get latent representations
 def get_latent_representations(model, data_loader, device=None):
@@ -14,9 +14,10 @@ def get_latent_representations(model, data_loader, device=None):
     with torch.no_grad():
         for data, targets in data_loader:
             data = data.to(device)
-            _, mu, _, _ = model(data)
+            targets = targets.to(device)
+            _, mu, _, _ = model(data, targets)
             mus.append(mu.cpu().numpy())
-            labels.append(targets.numpy())
+            labels.append(targets.cpu().numpy())
     return np.concatenate(mus, axis=0), np.concatenate(labels, axis=0)
 
 # Plot latent space
@@ -59,9 +60,11 @@ def plot_latent_per_client(mnist_model, fashion_model, data_loaders: Dict[str, D
 #From bvezilic/Variational-autoencoder
 class PlotCallback:
     """Callback class that retrieves several samples and displays model reconstructions"""
-    def __init__(self, num_samples=10, save_dir=None, device=None):
+    def __init__(self, cfg, num_samples=10, save_dir=None, device=None):
         self.num_samples = num_samples
         self.device = device
+        self.cfg = cfg
+        self.num_total_classes = cfg.num_total_classes
         # self.save_dir = save_dir
         # self.counter = 0
 
@@ -71,8 +74,8 @@ class PlotCallback:
     def __call__(self, model, dataloader):
         model.eval()  # Set model to eval mode due to Dropout, BN, etc.
         with torch.no_grad():
-            inputs = self._batch_random_samples(dataloader)
-            outputs, mu, log_var, z = model(inputs)  # Forward pass
+            inputs, targets = self._batch_random_samples(dataloader)
+            outputs, mu, log_var, z = model(inputs, targets)  # Forward pass
 
             # Prepare data for plotting
             input_images = self._reshape_to_image(inputs, numpy=True)
@@ -85,22 +88,29 @@ class PlotCallback:
         return fig
 
     def _batch_random_samples(self, dataloader):
-        """Helper function that retrieves `num_samles` from dataset and prepare them in batch for model """
+        """Helper function that retrieves `num_samples` from dataset and prepare them in batch for model """
         dataset = dataloader.dataset
 
         # Randomly sample one data sample per each class
         samples = []
-        for i in range(10):
-            idx = np.random.choice(np.where(dataset.targets == i)[0], size=1)
+        targets = []
+        for i in range(self.num_total_classes):
+            idxs = np.where(dataset.targets == i)[0]
+            if len(idxs) == 0:
+                continue
+            idx = np.random.choice(idxs, size=1)
             #breakpoint()
             samples.append(dataset[idx[0]][0])
+            targets.append(i)
 
         # Create batch
         batch = torch.stack(samples)
         batch = batch.view(batch.size(0), -1)  # Flatten
         batch = batch.to(self.device)
 
-        return batch
+        targets = torch.tensor(targets, dtype=torch.long).to(self.device)
+
+        return batch, targets
 
     def _reshape_to_image(self, tensor, numpy=True):
         """Helper function that converts image-vector into image-matrix."""
@@ -132,6 +142,31 @@ class PlotCallback:
             ax_lst[i][2].set_axis_off()
 
         #fig.tight_layout()
+        return fig
+    
+def plot_recontruction_from_noise(cfg, model, num_samples=10, device=None, mu=0, std=1):
+    model.eval()
+    with torch.no_grad():
+        z = torch.normal(mean=mu, std=std, size=(num_samples, cfg.latent_dim)).to(device)
+        # unconditional reconstruction
+        ## TODO: conditional reconstruction
+        outputs = model.decoder_forward(z)
+        images = outputs.reshape(-1, 28, 28)
+        z = z.cpu().numpy()
+        images = images.cpu().numpy()
+
+        """Creates plot figure and saves it on disk if save_dir is passed."""
+        fig, ax_lst = plt.subplots(num_samples, 3)
+        fig.suptitle("Latent Z → Reconstructed")
+
+        for i in range(num_samples):
+            # Variable z            
+            ax_lst[i][1].bar(np.arange(len(z[i])), z[i])
+
+            # Reconstructed images
+            ax_lst[i][2].imshow(images[i], cmap="gray")
+            ax_lst[i][2].set_axis_off()
+
         return fig
 
 
