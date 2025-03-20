@@ -102,7 +102,9 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
 
     num_rounds = cfg.num_rounds
     local_epochs = cfg.local_epochs
-    
+    ### TEMP
+    alpha = 0
+    ##########
     for round_num in tqdm(range(num_rounds)):
         
         # Train Clients
@@ -130,8 +132,8 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         MNISTClient.update_model(server.global_model.state_dict())
         FashionClient.update_model(server.global_model.state_dict())
         
-        mnist_train_loss_avg = compute_loss(MNISTClient.model, mnist_loader, cfg.device, mu_target=cfg.mnist_vae_mu_target) 
-        fashion_train_loss_avg = compute_loss(FashionClient.model, fashion_loader, cfg.device, mu_target=cfg.fashion_vae_mu_target)
+        mnist_train_loss_avg = compute_loss(MNISTClient.model, mnist_loader, cfg.device, mu_target=cfg.mnist_vae_mu_target, alpha=alpha) 
+        fashion_train_loss_avg = compute_loss(FashionClient.model, fashion_loader, cfg.device, mu_target=cfg.fashion_vae_mu_target, alpha=alpha)
 
         wandb_results.update({
             "MNIST_train_loss": mnist_train_loss_avg,
