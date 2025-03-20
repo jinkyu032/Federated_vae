@@ -6,7 +6,6 @@ from typing import Dict, Optional
 from copy import deepcopy
 from utils.logging_utils import AverageMeter
 import torch
-import wandb
 __all__ = ['GlobalClient']
 
 # Client class for federated learning

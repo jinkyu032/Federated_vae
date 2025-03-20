@@ -64,7 +64,6 @@ class Config:
     plot_independent_latents: bool = True
 
 
-
     @classmethod
     def federated_rounds200_epochs1(cls):
         return cls(name="federated_rounds200_epochs1", num_rounds=200, local_epochs=1)
