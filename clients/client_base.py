@@ -26,7 +26,7 @@ class BaseClient:
                 target = target.to(self.device)
                 self.optimizer.zero_grad()
                 recon_batch, mu, log_var, z = self.model(data, target)
-                loss = self.vae_loss(recon_batch, data, mu, log_var, mu_target=self.vae_mu_target, alpha=self.alpha, z=z)
+                loss = sum(self.vae_loss(recon_batch, data, mu, log_var, mu_target=self.vae_mu_target, alpha=self.alpha, z=z))
                 loss.backward()
                 self.optimizer.step()
         return self.model.state_dict()
