@@ -15,6 +15,7 @@ class BaseClient:
         self.optimizer = optim.Adam(self.model.parameters(), lr=cfg.lr)
         self.vae_loss = vae_loss
         self.vae_mu_target = vae_mu_target
+        self.alpha = cfg.alpha
 
     def train(self, local_epochs):
         # self.model.load_state_dict(global_weights)
@@ -25,7 +26,7 @@ class BaseClient:
                 target = target.to(self.device)
                 self.optimizer.zero_grad()
                 recon_batch, mu, log_var, z = self.model(data, target)
-                loss = self.vae_loss(recon_batch, data, mu, log_var, mu_target=self.vae_mu_target)
+                loss = self.vae_loss(recon_batch, data, mu, log_var, mu_target=self.vae_mu_target, alpha=self.alpha, z=z)
                 loss.backward()
                 self.optimizer.step()
         return self.model.state_dict()
