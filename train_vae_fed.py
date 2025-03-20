@@ -102,9 +102,7 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
 
     num_rounds = cfg.num_rounds
     local_epochs = cfg.local_epochs
-    ### TEMP
-    alpha = 0
-    ##########
+   
     for round_num in tqdm(range(num_rounds)):
         
         # Train Clients
