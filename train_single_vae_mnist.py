@@ -66,6 +66,10 @@ class Config:
     # Plot independent latents
     plot_independent_latents: bool = True
 
+    # Distance Based loss
+    alpha: float = 0
+    sample_p: float = 0
+
 
 
     @classmethod
@@ -111,7 +115,7 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         ## Eval && analysis
         figures_to_close = []
         
-        mnist_train_loss_avg = compute_loss(MNISTClient.model, mnist_loader, cfg.device, mu_target=cfg.mnist_vae_mu_target) 
+        mnist_train_loss_avg = compute_loss(MNISTClient.model, mnist_loader, cfg.device, mu_target=cfg.mnist_vae_mu_target, alpha=cfg.alpha) 
 
         wandb_results.update({
             "MNIST_train_loss": mnist_train_loss_avg,
