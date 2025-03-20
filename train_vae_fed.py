@@ -28,7 +28,7 @@ import gc
 @dataclass
 class Config:
     ## General Configs  
-    wandb: bool = True
+    wandb: bool = False
     num_samples: int = 10
     save_dir: str = None
     project: str = "vae"
