@@ -6,11 +6,12 @@ __all__ = ['VAE']
 
 # Define VAE model
 class VAE(nn.Module):
-    def __init__(self, hidden_dims=[512, 256], latent_dim=2, conditional=False, num_classes=20):
+    def __init__(self, hidden_dims=[512, 256], latent_dim=2, conditional=False, num_classes=20, sample_p=0):
         super(VAE, self).__init__()
         self.latent_dim = latent_dim
         self.conditional = conditional
         self.num_classes = num_classes
+        self.sample_p = sample_p
 
             
         self.encoder = nn.Sequential(
@@ -36,6 +37,9 @@ class VAE(nn.Module):
     def reparameterize(self, mu, log_var):
         std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std)
+        if self.training:
+            flip_mask = (torch.rand_like(mu) < self.sample_p).float()
+            mu =  flip_mask * (-mu) + (1 - flip_mask) * (mu)
         return mu + eps * std
 
     def forward(self, x, c=None):
