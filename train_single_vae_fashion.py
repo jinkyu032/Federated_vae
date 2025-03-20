@@ -68,6 +68,10 @@ class Config:
     # Plot independent latents
     plot_independent_latents: bool = True
 
+    # Distance Based loss
+    alpha: float = 0
+    sample_p: float = 0
+
     @classmethod
     def centralized_rounds200_epochs1(cls):
         return cls(name="centralized_fashion_rounds200_epochs1", num_rounds=200, local_epochs=1)
@@ -98,7 +102,7 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         
         ## Eval && analysis
         figures_to_close = []
-        fashion_train_loss_avg = compute_loss(FashionClient.model, fashion_loader, cfg.device, mu_target=cfg.fashion_vae_mu_target)
+        fashion_train_loss_avg = compute_loss(FashionClient.model, fashion_loader, cfg.device, mu_target=cfg.fashion_vae_mu_target, alpha=cfg.alpha)
 
         wandb_results.update({
             "Fashion_train_loss": fashion_train_loss_avg,
