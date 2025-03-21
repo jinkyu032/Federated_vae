@@ -43,7 +43,7 @@ class BaseClient:
                 dist_loss_meter.update(dist_loss.item(), data.size(0))
 
         
-        print(f"Training Loss: {loss_meter.avg:.2f}, Recon Loss: {recon_loss_meter.avg:.2f}, KL Loss: {kl_loss_meter.avg:.2f}")
+        print(f"Training Loss: {loss_meter.avg:.2f}, Recon Loss: {recon_loss_meter.avg:.2f}, KL Loss: {kl_loss_meter.avg:.2f}, Dist Loss: {dist_loss_meter.avg:.2f}")
         loss_dict = {
             "train_loss": loss_meter.avg,
             "train_recon_loss": recon_loss_meter.avg,
