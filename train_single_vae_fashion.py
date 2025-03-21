@@ -107,7 +107,7 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
             "Fashion_train_loss": fashion_train_loss,
             "Fashion_train_recon_loss": fashion_train_recon_loss,
             "Fashion_train_kl_loss": fashion_train_kl_loss,
-           "Fashion_train_dist_loss": fashion_train_dist_loss
+            "Fashion_train_dist_loss": fashion_train_dist_loss
         })
         
         if not cfg.analyze_local_models_before_update:
