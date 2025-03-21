@@ -11,6 +11,7 @@ def get_dataloaders(cfg: Union[Dict, DictConfig]):
     # Check config type
     if isinstance(cfg, DictConfig):
         data_path = cfg.root
+        cfg.conditional = cfg.model.conditional
     else:
         data_path = "./data"
 
@@ -23,7 +24,7 @@ def get_dataloaders(cfg: Union[Dict, DictConfig]):
     mnist_train = datasets.MNIST(root=data_path, train=True, download=True, transform=transform)
     fashion_train = datasets.FashionMNIST(root=data_path, train=True, download=True, transform=transform)
     
-    if cfg.model.conditional:
+    if cfg.conditional:
         fashion_train.targets = fashion_train.targets + 10
 
     # Federated: legd loaders for each client
