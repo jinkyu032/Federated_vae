@@ -4,7 +4,7 @@ from typing import Dict, Union
 from omegaconf import DictConfig
 __all__ = ['get_dataloaders', 'idx2onehot']
 
-def get_dataloaders(cfg: ):
+def get_dataloaders(cfg: Union[Dict, DictConfig]):
     # Define transform
     transform = transforms.ToTensor()
 
