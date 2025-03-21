@@ -65,7 +65,10 @@ class PlotCallback:
         self.num_samples = num_samples
         self.device = device
         self.cfg = cfg
-        self.num_total_classes = cfg.num_total_classes
+        if isinstance(cfg, DictConfig):
+            self.num_total_classes = cfg.model.num_total_classes    
+        else:
+            self.num_total_classes = cfg.num_total_classes
         # self.save_dir = save_dir
         # self.counter = 0
 
