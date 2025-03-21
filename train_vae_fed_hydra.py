@@ -118,8 +118,8 @@ def main(cfg: DictConfig):
     # Get Model
     model = get_model(cfg)
 
-    # Pring config
-    print(wandb.config)
+    # Print config
+    print(OmegaConf.to_yaml(cfg, resolve=True)) 
 
     # Federated training
     federated_model = train_federated(cfg, dataloaders, model)
