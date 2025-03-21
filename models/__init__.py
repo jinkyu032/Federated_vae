@@ -10,4 +10,4 @@ def get_model(cfg: Union[Dict, DictConfig]):
     if cfg.model_name == "vae":
         return VAE(latent_dim=latent_dim, conditional=conditional, num_classes=num_classes, sample_p=sample_p)
     else:
-        raise ValueError(f"Invalid model name: {cfg.model_name}")
+        raise ValueError(f"Invalid model name: {cfg.model.model_name}")
