@@ -19,6 +19,7 @@ class GlobalClient:
         self.vae_loss = vae_loss
         self.vae_mu_target = vae_mu_target
         self.vae_sigma_target = vae_sigma_target
+        self.alpha = cfg.alpha
         self.iterations = 0
 
     
@@ -27,6 +28,7 @@ class GlobalClient:
         loss_meter = AverageMeter('Loss', ':.2f')
         recon_loss_meter = AverageMeter('Recon Loss', ':.2f')
         kl_loss_meter = AverageMeter('KL Loss', ':.2f')
+        dist_loss_meter = AverageMeter('Dist Loss', ':.2f')
         # self.model.load_state_dict(global_weights)
         self.model.train()
         self.mnist_client_model = self.mnist_client_model.to(self.device)
@@ -50,14 +52,15 @@ class GlobalClient:
                 
                 self.optimizer.zero_grad()
                 recon_batch, mu, log_var, z = self.model(data)
-                recon_loss, kl_loss = self.vae_loss(recon_batch, data, mu, log_var, mu_target=self.vae_mu_target)
-                loss = recon_loss + kl_loss
+                recon_loss, kl_loss, dist_loss = self.vae_loss(recon_batch, data, mu, log_var, mu_target=self.vae_mu_target, alpha=self.alpha, z=z)
+                loss = recon_loss + kl_loss + dist_loss
                 loss.backward()
                 self.optimizer.step()
 
                 loss_meter.update(loss.item(), data.size(0))
                 recon_loss_meter.update(recon_loss.item(), data.size(0))
                 kl_loss_meter.update(kl_loss.item(), data.size(0))
+                dist_loss_meter.update(kl_loss.item(), data.size(0))
 
                 
         print(f"Training Loss: {loss_meter.avg:.2f}, Recon Loss: {recon_loss_meter.avg:.2f}, KL Loss: {kl_loss_meter.avg:.2f}")

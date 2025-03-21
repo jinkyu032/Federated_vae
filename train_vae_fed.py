@@ -28,7 +28,7 @@ import gc
 @dataclass
 class Config:
     ## General Configs  
-    wandb: bool = True
+    wandb: bool = False
     num_samples: int = 10
     save_dir: str = None
     project: str = "vae"
@@ -63,6 +63,9 @@ class Config:
     # Plot independent latents
     plot_independent_latents: bool = True
 
+    # Distance Based loss
+    alpha: float = 0
+    sample_p: float = 0
 
     @classmethod
     def federated_rounds200_epochs1(cls):
@@ -101,7 +104,7 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
 
     num_rounds = cfg.num_rounds
     local_epochs = cfg.local_epochs
-    
+   
     for round_num in tqdm(range(num_rounds)):
         
         # Train Clients
@@ -129,8 +132,8 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         MNISTClient.update_model(server.global_model.state_dict())
         FashionClient.update_model(server.global_model.state_dict())
         
-        mnist_train_loss_avg = compute_loss(MNISTClient.model, mnist_loader, cfg.device, mu_target=cfg.mnist_vae_mu_target) 
-        fashion_train_loss_avg = compute_loss(FashionClient.model, fashion_loader, cfg.device, mu_target=cfg.fashion_vae_mu_target)
+        mnist_train_loss_avg, _, _, _ = compute_loss(MNISTClient.model, mnist_loader, cfg.device, mu_target=cfg.mnist_vae_mu_target, alpha=cfg.alpha) 
+        fashion_train_loss_avg, _, _, _ = compute_loss(FashionClient.model, fashion_loader, cfg.device, mu_target=cfg.fashion_vae_mu_target, alpha=cfg.alpha)
 
         wandb_results.update({
             "MNIST_train_loss": mnist_train_loss_avg,
