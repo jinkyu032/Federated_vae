@@ -7,7 +7,7 @@ def get_model(cfg: Union[Dict, DictConfig]):
     conditional = cfg.model.conditional
     num_classes = cfg.model.num_total_classes
     sample_p = cfg.sample_p
-    if cfg.model_name == "vae":
+    if cfg.model.model_name == "vae":
         return VAE(latent_dim=latent_dim, conditional=conditional, num_classes=num_classes, sample_p=sample_p)
     else:
         raise ValueError(f"Invalid model name: {cfg.model.model_name}")
