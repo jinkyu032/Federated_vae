@@ -11,11 +11,10 @@ def get_dataloaders(cfg: Union[Dict, DictConfig]):
     # Check config type
     if isinstance(cfg, DictConfig):
         data_path = cfg.root
-        OmegaConf.set_struct(cfg, False)
-        cfg.conditional = cfg.model.conditional
-        OmegaConf.set_struct(cfg, True)
+        conditional = cfg.model.conditional
     else:
         data_path = "./data"
+        conditional = cfg.conditional
 
     # Load training datasets
     new_mirror = 'https://ossci-datasets.s3.amazonaws.com/mnist'
@@ -26,7 +25,7 @@ def get_dataloaders(cfg: Union[Dict, DictConfig]):
     mnist_train = datasets.MNIST(root=data_path, train=True, download=True, transform=transform)
     fashion_train = datasets.FashionMNIST(root=data_path, train=True, download=True, transform=transform)
     
-    if cfg.conditional:
+    if conditional:
         fashion_train.targets = fashion_train.targets + 10
 
     # Federated: legd loaders for each client
@@ -37,7 +36,7 @@ def get_dataloaders(cfg: Union[Dict, DictConfig]):
     mnist_test = datasets.MNIST(root=data_path, train=False, download=False, transform=transform)
     fashion_test = datasets.FashionMNIST(root=data_path, train=False, download=False, transform=transform)
     
-    if cfg.conditional:
+    if conditional:
         fashion_test.targets = fashion_test.targets + 10
         
     mnist_test_loader = torch.utils.data.DataLoader(mnist_test, batch_size=cfg.eval_batch_size, shuffle=False)
