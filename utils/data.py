@@ -18,7 +18,7 @@ def get_dataloaders(cfg):
     )
     #mnist_train = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
     fashion_train = datasets.FashionMNIST(root='./data', train=True, download=True, transform=transform)
-    if cfg.conditional:
+    if cfg.model.conditional:
         fashion_train.targets = fashion_train.targets + 10
 
     # Federated: legd loaders for each client
@@ -30,7 +30,7 @@ def get_dataloaders(cfg):
     "./data", train=False, download=False, transform=transform
     )
     fashion_test = datasets.FashionMNIST(root='./data', train=False, download=False, transform=transform)
-    if cfg.conditional:
+    if cfg.model.conditional:
         fashion_test.targets = fashion_test.targets + 10
     mnist_test_loader = torch.utils.data.DataLoader(mnist_test, batch_size=cfg.eval_batch_size, shuffle=False)
     fashion_test_loader = torch.utils.data.DataLoader(fashion_test, batch_size=cfg.eval_batch_size, shuffle=False)
