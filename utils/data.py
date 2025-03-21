@@ -11,8 +11,9 @@ def get_dataloaders(cfg: Union[Dict, DictConfig]):
     # Check config type
     if isinstance(cfg, DictConfig):
         data_path = cfg.root
-        cfg.conditional = False
+        OmegaConf.set_struct(cfg, False)
         cfg.conditional = cfg.model.conditional
+        OmegaConf.set_struct(cfg, True)
     else:
         data_path = "./data"
 
