@@ -35,7 +35,7 @@ def get_dataloaders(cfg: Union[Dict, DictConfig]):
     mnist_test = datasets.MNIST(root=data_path, train=False, download=False, transform=transform)
     fashion_test = datasets.FashionMNIST(root=data_path, train=False, download=False, transform=transform)
     
-    if cfg.model.conditional:
+    if cfg.conditional:
         fashion_test.targets = fashion_test.targets + 10
         
     mnist_test_loader = torch.utils.data.DataLoader(mnist_test, batch_size=cfg.eval_batch_size, shuffle=False)
