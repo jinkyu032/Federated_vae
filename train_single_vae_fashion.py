@@ -96,16 +96,18 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
     for round_num in tqdm(range(num_rounds)):
         
         # Train Clients
-        client_weights = [
-            FashionClient.train(local_epochs)
-        ]
+        updated_model_state_dict, loss_dict = FashionClient.train(local_epochs)
+        wandb_results.update(loss_dict, step=round_num + 1)
         
         ## Eval && analysis
         figures_to_close = []
-        fashion_train_loss_avg = compute_loss(FashionClient.model, fashion_loader, cfg.device, mu_target=cfg.fashion_vae_mu_target, alpha=cfg.alpha)
+        fashion_train_loss, fashion_train_recon_loss, fashion_train_kl_loss, fashion_dist_loss = compute_loss(FashionClient.model, fashion_loader, cfg.device, mu_target=cfg.fashion_vae_mu_target, alpha=cfg.alpha)
 
-        wandb_results.update({
-            "Fashion_train_loss": fashion_train_loss_avg,
+       wandb_results.update({
+            "Fashion_train_loss": fashion_train_loss,
+            "Fashion_train_recon_loss": fashion_train_recon_loss,
+            "Fashion_train_kl_loss": fashion_train_kl_loss,
+           "Fashion_train_dist_loss": fashion_train_dist_loss
         })
         
         if not cfg.analyze_local_models_before_update:
@@ -116,7 +118,7 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
             wandb_results, figures_to_close = log_analysis(wandb_results, Fashion_analysis, figures_to_close)
 
         wandb.log(wandb_results, step=round_num + 1)
-        print(f"Federated Round {round_num+1}/{num_rounds}, Fashion Train Loss: {fashion_train_loss_avg:.4f}")
+        print(f"Federated Round {round_num+1}/{num_rounds}, Fashion Train Loss: {fashion_train_loss:.4f}")
 
         # Close figures
         for fig in figures_to_close:
