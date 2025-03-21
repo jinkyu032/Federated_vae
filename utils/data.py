@@ -1,7 +1,7 @@
 import torch
 from torchvision import datasets, transforms
 from typing import Dict, Union
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 __all__ = ['get_dataloaders', 'idx2onehot']
 
 def get_dataloaders(cfg: Union[Dict, DictConfig]):
