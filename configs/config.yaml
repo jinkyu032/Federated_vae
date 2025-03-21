@@ -1,0 +1,35 @@
+# @package _global_
+defaults:
+  - model: vae
+  - client: base
+  - server: base
+  - _self_
+
+# General configs
+wandb: true
+num_samples: 10
+save_dir: null
+project: "vae"
+name: "central_combined"
+device: ${oc.select:cuda:0,cpu}
+
+# Federated Training Configs
+batch_size: 64
+lr: 1e-3
+num_rounds: 200
+local_epochs: 1
+
+# Eval Configs
+eval_batch_size: 1000
+analyze_local_models_before_update: false
+
+# Plot independent latents
+plot_independent_latents: true
+
+# Distance Based loss
+alpha: 0
+sample_p: 0
+
+# MNIST and Fashion MNIST targets
+mnist_vae_mu_target: 0
+fashion_vae_mu_target: 0
