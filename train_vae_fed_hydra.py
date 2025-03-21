@@ -103,7 +103,8 @@ def main(cfg: DictConfig):
     wandb_config = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=True)
     
     # Initialize wandb
-    wandb_enabled = "online" if cfg.wandb else "offline"
+    #wandb_enabled = "online" if cfg.wandb else "offline"
+    wandb_enabled = "offline"
     wandb.init(entity="FedRL-SNU", project=cfg.project, name=cfg.name, mode=wandb_enabled, config=wandb_config)
 
     # Get datasets and dataloaders
