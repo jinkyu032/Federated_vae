@@ -25,6 +25,7 @@ class BaseClient:
         kl_loss_meter = AverageMeter('KL Loss', ':.2f')
         dist_loss_meter = AverageMeter('Dist Loss', ':.2f')
 
+
         self.model.train()
         for _ in range(local_epochs):
             for data, target in self.data_loader:
@@ -33,7 +34,7 @@ class BaseClient:
                 self.optimizer.zero_grad()
                 recon_batch, mu, log_var, z = self.model(data, target)
                 recon_loss, kl_loss, dist_loss = self.vae_loss(recon_batch, data, mu, log_var, mu_target=self.vae_mu_target, alpha=self.alpha, z=z)
-                loss = recon_loss + kl_loss
+                loss = recon_loss + kl_loss + dist_loss
                 loss.backward()
                 self.optimizer.step()
 

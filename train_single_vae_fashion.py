@@ -98,6 +98,7 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         # Train Clients
         updated_model_state_dict, loss_dict = FashionClient.train(local_epochs)
         wandb_results.update(loss_dict, step=round_num + 1)
+
         
         ## Eval && analysis
         figures_to_close = []

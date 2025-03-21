@@ -111,7 +111,9 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         ## Eval && analysis
         figures_to_close = []
         
+
         mnist_train_loss, mnist_train_recon_loss, mnist_train_kl_loss, mnist_train_dist_loss = compute_loss(MNISTClient.model, mnist_loader, cfg.device, mu_target=cfg.mnist_vae_mu_target, alpha=cfg.alpha) 
+
 
         wandb_results.update({
             "MNIST_train_loss": mnist_train_loss,
@@ -121,7 +123,6 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         })
         
         # Analyzie MNISTClient.model
-        #MNISTClient_latent_fig, MNISTClient_mnist_recon_fig, MNISTClient_fashion_recon_fig, MNISTClient_manifold_fig, MNISTClient_mnist_test_loss_avg, MNISTClient_fashion_test_loss_avg = analyze_model(cfg, MNISTClient.model, f"Client 1 Round {round_num+1}", data_loaders=data_loaders)
         MNIST_analysis = analyze_model(cfg, MNISTClient.model, f"Client 1 Round {round_num+1}", data_loaders=data_loaders, prefix="MNISTClient_")
         wandb_results, figures_to_close = log_analysis(wandb_results, MNIST_analysis, figures_to_close)
 
