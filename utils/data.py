@@ -16,8 +16,8 @@ def get_dataloaders(cfg):
     mnist_train = datasets.MNIST(
     "./data", train=True, download=True, transform=transform
     )
-    #mnist_train = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
-    fashion_train = datasets.FashionMNIST(root='./data', train=True, download=True, transform=transform)
+    #mnist_train = datasets.MNIST(root=cfg.root, train=True, download=True, transform=transform)
+    fashion_train = datasets.FashionMNIST(root=cfg.root', train=True, download=True, transform=transform)
     if cfg.model.conditional:
         fashion_train.targets = fashion_train.targets + 10
 
