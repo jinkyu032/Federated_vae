@@ -2,7 +2,7 @@ from .vae import VAE
 from typing import Dict, Union
 from omegaconf import DictConfig
 
-def get_model(cfg: Union[Dict, Dictconfig]):
+def get_model(cfg: Union[Dict, DictConfig]):
     latent_dim = cfg.model.latent_dim
     conditional = cfg.model.conditional
     num_classes = cfg.model.num_total_classes
