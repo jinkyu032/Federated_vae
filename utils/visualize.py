@@ -3,7 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 from torch.utils.data import DataLoader
-from typing import Dict
+from typing import Dict, Union
+from omegaconf import DictConfig
 
 __all__ = ['plot_latent_space', 'plot_latent_per_client', 'plot_latent_per_client', 'plot_recontruction_from_noise']
 
@@ -60,7 +61,7 @@ def plot_latent_per_client(mnist_model, fashion_model, data_loaders: Dict[str, D
 #From bvezilic/Variational-autoencoder
 class PlotCallback:
     """Callback class that retrieves several samples and displays model reconstructions"""
-    def __init__(self, cfg, num_samples=10, save_dir=None, device=None):
+    def __init__(self, cfg: Union[Dict, DictConfig], num_samples=10, save_dir=None, device=None):
         self.num_samples = num_samples
         self.device = device
         self.cfg = cfg
@@ -144,7 +145,9 @@ class PlotCallback:
         #fig.tight_layout()
         return fig
     
-def plot_recontruction_from_noise(cfg, model, num_samples=10, device=None, mu=0, std=1):
+def plot_recontruction_from_noise(cfg: Union[Dict, DictConfig], model, num_samples=10, device=None, mu=0, std=1):
+     if isinstance(cfg, DictConfig):
+        cfg = cfg.model
     model.eval()
     with torch.no_grad():
         z = torch.normal(mean=mu, std=std, size=(num_samples, cfg.latent_dim)).to(device)
