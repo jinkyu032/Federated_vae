@@ -11,7 +11,7 @@ class BaseServer:
         self.global_model = model
 
     def aggregate(self, client_weights):
-        avg_weights = {key: sum(w[key] for w in client_weights) / len(client_weights) for key in client_weights[0].keys()}
+        avg_weights = {key: sum(w[key] for w in client_weights) / len(client_weights) for key in client_weights[0][0].keys()}
         self.global_model.load_state_dict(avg_weights)
 
 
