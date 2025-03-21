@@ -13,6 +13,9 @@ project: "vae"
 name: "central_combined"
 device: ${oc.select:cuda:0,cpu}
 
+# Data configs
+root="/home/daeul/Federated_vae/data"
+
 # Federated Training Configs
 batch_size: 64
 lr: 1e-3
