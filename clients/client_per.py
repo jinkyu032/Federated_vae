@@ -1,7 +1,7 @@
 from torch import optim
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
 from omegaconf import DictConfig
 
 from clients.client_base import BaseClient
