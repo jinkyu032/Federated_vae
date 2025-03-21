@@ -16,6 +16,7 @@ class BaseClient:
         self.optimizer = optim.Adam(self.model.parameters(), lr=cfg.lr)
         self.vae_loss = vae_loss
         self.vae_mu_target = vae_mu_target
+        self.alpha = cfg.alpha
 
     def train(self, local_epochs):
 
