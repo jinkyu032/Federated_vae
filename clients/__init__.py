@@ -9,15 +9,17 @@ from omegaconf import DictConfig
 
 def get_client(cfg: Union[Dict, DictConfig], model: nn.Module, data_loader: Optional[DataLoader]=None, vae_loss_type: Optional[str]=None):
     if isinstance(cfg, DictConfig):
-        cfg = cfg.client
+        cfg_client = cfg.client
+    else:
+        cfg_client = cfg
         
-    if cfg.client_type == "base":
+    if cfg_client.client_type == "base":
         return BaseClient(cfg, model, data_loader, vae_loss_type)
-    elif cfg.client_type == "per_enc":
+    elif cfg_client.client_type == "per_enc":
         return PerEncClient(cfg, model, data_loader, vae_loss_type)
-    elif cfg.client_type == "per_dec":
+    elif cfg_client.client_type == "per_dec":
         return PerDecClient(cfg, model, data_loader, vae_loss_type)
-    elif cfg.client_type == "global":
+    elif cfg_client.client_type == "global":
         return GlobalClient(cfg, model, data_loader, vae_loss_type)
     else:
-        raise ValueError(f"Invalid client type: {cfg.client_type}")
+        raise ValueError(f"Invalid client type: {cfg_client.client_type}")
