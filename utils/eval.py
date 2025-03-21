@@ -10,8 +10,10 @@ import matplotlib.pyplot as plt
 
 def analyze_model(cfg: Union[Dict, DictConfig], model, title, data_loaders: Dict[str, DataLoader],prefix=None):
     if isinstance(cfg, DictConfig):
-        cfg.conditional = cfg.model.conditional
-    
+        conditional = cfg.model.conditional
+    else:
+        conditional = cfg.conditional
+        
     mnist_test_loader = data_loaders["mnist_test"]
     fashion_test_loader = data_loaders["fashion_test"]
     mnist_train_loader = data_loaders["mnist_train"]
@@ -25,7 +27,7 @@ def analyze_model(cfg: Union[Dict, DictConfig], model, title, data_loaders: Dict
         latent_fig = plot_latent_space(model, mnist_test_loader, fashion_test_loader, title, cfg.device)
         mnist_recon_fig = plot_callback(model, mnist_train_loader)
         fashion_recon_fig = plot_callback(model, fashion_train_loader)
-        if not cfg.conditional:
+        if not conditional:
             if cfg.mnist_vae_mu_target==cfg.fashion_vae_mu_target:
                 manifold_fig = visualize_manifold(model, device=cfg.device, offset=(cfg.mnist_vae_mu_target, cfg.mnist_vae_mu_target) )
                 result_dict[prefix + 'manifold'] = manifold_fig
