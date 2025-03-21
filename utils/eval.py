@@ -2,13 +2,15 @@ import torch
 
 from utils.visualize import PlotCallback, plot_latent_space, visualize_manifold
 from utils.losses import compute_loss
-from typing import Dict
+from typing import Dict, Union
+from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 import wandb
 import matplotlib.pyplot as plt
 
-def analyze_model(cfg, model, title, data_loaders: Dict[str, DataLoader],prefix=None):
-    
+def analyze_model(cfg: Union[Dict, DictConfig], model, title, data_loaders: Dict[str, DataLoader],prefix=None):
+    if isinstance(cfg, DictConfig):
+        cfg.conditional = cfg.model.conditional
     
     mnist_test_loader = data_loaders["mnist_test"]
     fashion_test_loader = data_loaders["fashion_test"]
