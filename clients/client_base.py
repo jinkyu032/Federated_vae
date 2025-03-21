@@ -47,7 +47,8 @@ class BaseClient:
         loss_dict = {
             "train_loss": loss_meter.avg,
             "train_recon_loss": recon_loss_meter.avg,
-            "train_kl_loss": kl_loss_meter.avg
+            "train_kl_loss": kl_loss_meter.avg,
+            "train_dist_loss": dist_loss_meter.avg,
         }
         return self.model.state_dict(), loss_dict
 
