@@ -1,11 +1,20 @@
 import torch
 from torchvision import datasets, transforms
-
+from typing import Dict, Union
+from omegaconf import DictConfig, OmegaConf
 __all__ = ['get_dataloaders', 'idx2onehot']
 
-def get_dataloaders(cfg):
+def get_dataloaders(cfg: Union[Dict, DictConfig]):
     # Define transform
     transform = transforms.ToTensor()
+
+    # Check config type
+    if isinstance(cfg, DictConfig):
+        data_path = cfg.root
+        conditional = cfg.model.conditional
+    else:
+        data_path = "./data"
+        conditional = cfg.conditional
 
     # Load training datasets
     new_mirror = 'https://ossci-datasets.s3.amazonaws.com/mnist'
@@ -13,12 +22,10 @@ def get_dataloaders(cfg):
     ('/'.join([new_mirror, url.split('/')[-1]]), md5)
     for url, md5 in datasets.MNIST.resources
     ]
-    mnist_train = datasets.MNIST(
-    "./data", train=True, download=True, transform=transform
-    )
-    #mnist_train = datasets.MNIST(root='./data', train=True, download=True, transform=transform)
-    fashion_train = datasets.FashionMNIST(root='./data', train=True, download=True, transform=transform)
-    if cfg.conditional:
+    mnist_train = datasets.MNIST(root=data_path, train=True, download=True, transform=transform)
+    fashion_train = datasets.FashionMNIST(root=data_path, train=True, download=True, transform=transform)
+    
+    if conditional:
         fashion_train.targets = fashion_train.targets + 10
 
     # Federated: legd loaders for each client
@@ -26,12 +33,12 @@ def get_dataloaders(cfg):
     fashion_loader = torch.utils.data.DataLoader(fashion_train, batch_size=cfg.batch_size, shuffle=True)
 
     # Test datasets (for test loss computation)
-    mnist_test = datasets.MNIST(
-    "./data", train=False, download=False, transform=transform
-    )
-    fashion_test = datasets.FashionMNIST(root='./data', train=False, download=False, transform=transform)
-    if cfg.conditional:
+    mnist_test = datasets.MNIST(root=data_path, train=False, download=False, transform=transform)
+    fashion_test = datasets.FashionMNIST(root=data_path, train=False, download=False, transform=transform)
+    
+    if conditional:
         fashion_test.targets = fashion_test.targets + 10
+        
     mnist_test_loader = torch.utils.data.DataLoader(mnist_test, batch_size=cfg.eval_batch_size, shuffle=False)
     fashion_test_loader = torch.utils.data.DataLoader(fashion_test, batch_size=cfg.eval_batch_size, shuffle=False)
 

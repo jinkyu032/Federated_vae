@@ -1,11 +1,12 @@
 from models import VAE
-
+from typing import Dict, Union
+from omegaconf import DictConfig
 
 __all__ = ['BaseServer']
 
 # Server class for federated learning
 class BaseServer:
-    def __init__(self, cfg, model):
+    def __init__(self, cfg: Union[Dict, DictConfig], model):
         self.cfg = cfg
         self.device = cfg.device
         self.global_model = model

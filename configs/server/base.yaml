@@ -1,0 +1,3 @@
+# @package _global_.server
+_target_: servers.get_server
+server_type: "base"

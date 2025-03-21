@@ -2,7 +2,8 @@ from utils.losses import vae_loss
 from torch import optim
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
+from omegaconf import DictConfig
 from copy import deepcopy
 from utils.logging_utils import AverageMeter
 import torch
@@ -10,7 +11,7 @@ __all__ = ['GlobalClient']
 
 # Client class for federated learning
 class GlobalClient:
-    def __init__(self, cfg: Dict, model: nn.Module, data_loader: Optional[DataLoader]=None, vae_mu_target: Optional[int]=0, vae_sigma_target: Optional[int]=1):
+    def __init__(self, cfg: Union[Dict, DictConfig], model: nn.Module, data_loader: Optional[DataLoader]=None, vae_mu_target: Optional[int]=0, vae_sigma_target: Optional[int]=1):
         self.cfg = cfg
         self.device = cfg.device
         self.data_loader = data_loader

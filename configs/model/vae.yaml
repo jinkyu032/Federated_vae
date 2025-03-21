@@ -1,0 +1,6 @@
+# @package _global_.model
+_target_: models.get_model
+model_name: "vae"
+latent_dim: 2
+conditional: false
+num_total_classes: 20
