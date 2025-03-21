@@ -146,7 +146,7 @@ class PlotCallback:
         return fig
     
 def plot_recontruction_from_noise(cfg: Union[Dict, DictConfig], model, num_samples=10, device=None, mu=0, std=1):
-     if isinstance(cfg, DictConfig):
+    if isinstance(cfg, DictConfig):
         cfg = cfg.model
     model.eval()
     with torch.no_grad():
