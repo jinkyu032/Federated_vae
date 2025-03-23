@@ -4,10 +4,11 @@ import torch.nn as nn
 __all__ = ['vae_loss', 'compute_loss']
 
 # VAE loss function
-def vae_loss(recon_x, x, mu, log_var, mu_target=0, alpha=0, z=0):
+def vae_loss(recon_x, x, mu, log_var, mu_target=0, alpha=0, z=0, type=l2):
     BCE = nn.functional.binary_cross_entropy(recon_x, x.view(-1, 784), reduction='sum')
     KLD = -0.5 * torch.sum(2*mu_target*mu + 1 + log_var - mu.pow(2) - log_var.exp())
-    DIST = alpha * torch.sum(torch.norm(z - mu_target, dim=-1)**2 * torch.sum(recon_x**2, dim=-1))
+    if type == 'l2':
+        DIST = alpha * torch.sum(torch.norm(z - mu_target, dim=-1)**2 * torch.sum(recon_x**2, dim=-1))
     return BCE, KLD, DIST
 
 # Compute loss for a data loader
