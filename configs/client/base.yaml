@@ -1,3 +1,4 @@
 # @package _global_.client
 _target_: clients.get_client
 client_type: "base"
+type: 'l2' #TODO) Move to base config section
