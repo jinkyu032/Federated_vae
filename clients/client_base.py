@@ -18,6 +18,7 @@ class BaseClient:
         self.vae_loss = vae_loss
         self.vae_mu_target = vae_mu_target
         self.alpha = cfg.alpha
+        self.type = cfg.type
 
     def train(self, local_epochs):
 
@@ -34,7 +35,7 @@ class BaseClient:
                 target = target.to(self.device)
                 self.optimizer.zero_grad()
                 recon_batch, mu, log_var, z = self.model(data, target)
-                recon_loss, kl_loss, dist_loss = self.vae_loss(recon_batch, data, mu, log_var, mu_target=self.vae_mu_target, alpha=self.alpha, z=z)
+                recon_loss, kl_loss, dist_loss = self.vae_loss(recon_batch, data, mu, log_var, mu_target=self.vae_mu_target, alpha=self.alpha, z=z, type=self.type)
                 loss = recon_loss + kl_loss + dist_loss
                 loss.backward()
                 self.optimizer.step()
