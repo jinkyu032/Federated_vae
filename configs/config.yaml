@@ -32,7 +32,6 @@ plot_independent_latents: true
 # Distance Based loss
 alpha: 0
 sample_p: 0
-type: 'l2'
 
 # MNIST and Fashion MNIST targets
 mnist_vae_mu_target: 0
