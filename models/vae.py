@@ -37,9 +37,6 @@ class VAE(nn.Module):
     def reparameterize(self, mu, log_var):
         std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std)
-        if self.training:
-            flip_mask = (torch.rand_like(mu) < self.sample_p).float()
-            mu =  flip_mask * (-mu) + (1 - flip_mask) * (mu)
         return mu + eps * std
 
     def forward(self, x, c=None):
