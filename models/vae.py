@@ -6,18 +6,20 @@ __all__ = ['VAE']
 
 # Define VAE model
 class VAE(nn.Module):
-    def __init__(self, hidden_dims=[512, 256], latent_dim=2, conditional=False, num_classes=20, sample_p=0):
+    def __init__(self, hidden_dims=[512, 256], latent_dim=2, conditional=False, num_classes=20, batch_norm=False):
         super(VAE, self).__init__()
         self.latent_dim = latent_dim
         self.conditional = conditional
         self.num_classes = num_classes
-        self.sample_p = sample_p
+        self.batch_norm = batch_norm
 
             
         self.encoder = nn.Sequential(
             nn.Linear(784, hidden_dims[0]),
+            nn.BatchNorm1d(hidden_dims[0]) if self.batch_norm else nn.Identity(),
             nn.ReLU(),
             nn.Linear(hidden_dims[0], hidden_dims[1]),
+            nn.BatchNorm1d(hidden_dims[1]) if self.batch_norm else nn.Identity(),
             nn.ReLU(),
             nn.Linear(hidden_dims[1], latent_dim*2)  # 2 for mu, 2 for log_var
         )
@@ -25,7 +27,9 @@ class VAE(nn.Module):
         self.decoder = nn.Sequential(
             nn.Linear(latent_dim, hidden_dims[1]),
             nn.ReLU(),
+            nn.BatchNorm1d(hidden_dims[1]) if self.batch_norm else nn.Identity(),
             nn.Linear(hidden_dims[1], hidden_dims[0]),
+            nn.BatchNorm1d(hidden_dims[0]) if self.batch_norm else nn.Identity(),
             nn.ReLU(),
             nn.Linear(hidden_dims[0], 784),
             nn.Sigmoid()

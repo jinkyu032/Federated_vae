@@ -37,14 +37,18 @@ class Config:
     ## Model Configs
     model_name: str = "vae"
     latent_dim: int = 2
+    batch_norm: bool = False
     conditional: bool = False
     num_total_classes: int = 20
     #hidden_dims: list = [512, 256]
+    use_classifier: bool = False
 
     ## Client Configs
     client_type: str = "base"    # ["base", "per_enc", "per_dec"]
     mnist_vae_mu_target: int = 0
     fashion_vae_mu_target: int = 0
+    kl_weight: float = 1
+    reduction: str = 'mean'
     
     ## Server Configs
     server_type: str = "base"
@@ -65,17 +69,32 @@ class Config:
 
     # Plot independent latents
     plot_independent_latents: bool = True
+    manifold: bool = False
+    problabelfeatures: bool = False
+    
+    
 
-    # Distance Based loss
-    alpha: float = 0
-    sample_p: float = 0
-
+    @classmethod
+    def centralized_rounds200_epochs1_conditional(cls):
+        return cls(name="centralized_mnist_rounds200_epochs1_conditional", num_rounds=200, local_epochs=1, conditional=True)
 
 
     @classmethod
     def centralized_rounds200_epochs1(cls):
-        return cls(name="centralized_mnist_rounds200_epochs1", num_rounds=200, local_epochs=1)
+        return cls(name="centralized_mnist_rounds200_epochs1_latent4", num_rounds=200, local_epochs=1, latent_dim=4)
+
+    @classmethod
+    def centralized_rounds200_epochs1_kl0(cls):
+        return cls(name="centralized_mnist_rounds200_epochs1_kl0", num_rounds=200, local_epochs=1, kl_weight=0)
     
+    @classmethod
+    def centralized_rounds200_epochs1_kl1e6(cls):
+        return cls(name="centralized_mnist_rounds200_epochs1_kl1e-6", num_rounds=200, local_epochs=1, kl_weight=1e-6)
+    
+    @classmethod
+    def centralized_rounds200_epochs1_bn(cls):
+        return cls(name="centralized_mnist_rounds200_epochs1_bn", num_rounds=200, local_epochs=1, batch_norm=True)   
+       
     @classmethod
     def federated_per_enc(cls):
         return cls(name="federated_per_enc_1", client_type="per_enc", num_rounds=200, local_epochs=1, analyze_local_models_before_update=False, plot_independent_latents=True,
@@ -111,8 +130,10 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         ## Eval && analysis
         figures_to_close = []
         
-
-        mnist_train_loss, mnist_train_recon_loss, mnist_train_kl_loss, mnist_train_dist_loss = compute_loss(MNISTClient.model, mnist_loader, cfg.device, mu_target=cfg.mnist_vae_mu_target, alpha=cfg.alpha) 
+        mnist_loss_dict = compute_loss(cfg, MNISTClient.model, mnist_loader, cfg.device, mu_target=cfg.mnist_vae_mu_target) 
+        mnist_train_loss = mnist_loss_dict['total_loss']
+        mnist_train_recon_loss = mnist_loss_dict['recon_loss']
+        mnist_train_kl_loss = mnist_loss_dict['kl_loss']
 
 
         wandb_results.update({

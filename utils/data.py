@@ -6,7 +6,9 @@ __all__ = ['get_dataloaders', 'idx2onehot']
 
 def get_dataloaders(cfg: Union[Dict, DictConfig]):
     # Define transform
-    transform = transforms.ToTensor()
+    transform = transforms.Compose([
+        transforms.ToTensor()
+        ])
 
     # Check config type
     if isinstance(cfg, DictConfig):

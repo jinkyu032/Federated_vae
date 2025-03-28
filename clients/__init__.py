@@ -1,7 +1,7 @@
 from .client_base import BaseClient
 from .client_per import PerEncClient, PerDecClient
 from .client_global import GlobalClient
-
+from .client_withclassifier import VAEClassifierClient
 from typing import Dict, Optional, Union
 import torch.nn as nn
 from torch.utils.data import DataLoader
@@ -21,5 +21,7 @@ def get_client(cfg: Union[Dict, DictConfig], model: nn.Module, data_loader: Opti
         return PerDecClient(cfg, model, data_loader, vae_loss_type)
     elif cfg_client.client_type == "global":
         return GlobalClient(cfg, model, data_loader, vae_loss_type)
+    elif cfg.client_type == "withclassifier":
+        return VAEClassifierClient(cfg, model, data_loader, vae_loss_type)
     else:
         raise ValueError(f"Invalid client type: {cfg_client.client_type}")
