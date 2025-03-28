@@ -38,15 +38,18 @@ class Config:
     ## Model Configs
     model_name: str = "vae"
     latent_dim: int = 2
+    batch_norm: bool = False
     conditional: bool = False
     num_total_classes: int = 20
+    use_classifier: bool = False
     #hidden_dims: list = [512, 256]
 
     ## Client Configs
     client_type: str = "global"    # ["base", "per_enc", "per_dec", "global"]
     mnist_vae_mu_target: int = 0
     fashion_vae_mu_target: int = 0
-    # global_vae_mu_target: int = 0
+    kl_weight: float = 1
+    reduction: str = 'mean'
     
     ## Server Configs
     server_type: str = "base"
@@ -67,14 +70,20 @@ class Config:
 
     # Plot independent latents
     plot_independent_latents: bool = True
+    manifold: bool = False
+    problabelfeatures: bool = False
 
     ## Model Paths
-    fashion_client_model_path: str = "/131_data/geeho/FedVAE/fashion_mnist/centralized_fashion_rounds200_epochs1/round_100.pth"
-    mnist_client_model_path: str = "/131_data/geeho/FedVAE/mnist/centralized_mnist_rounds200_epochs1/round_100.pth"
+    fashion_client_model_path: str = "/131_data/geeho/FedVAE/fashion_mnist/centralized_fashion_rounds200_epochs1_bn/round_100.pth"
+    mnist_client_model_path: str = "/131_data/geeho/FedVAE/mnist/centralized_mnist_rounds200_epochs1_bn/round_100.pth"
 
     @classmethod
     def federated_rounds200_epochs1(cls):
-        return cls(name="server_finetuning_rounds200_epochs1", num_rounds=200, local_epochs=1)
+        return cls(name="server_finetuning_rounds200_epochs1", num_rounds=200, local_epochs=1, batch_norm=False)
+    
+    @classmethod
+    def federated_rounds200_epochs1_bn(cls):
+        return cls(name="server_finetuning_rounds200_epochs1_bn", num_rounds=200, local_epochs=1, batch_norm=True)
     
     def asdict(self):
         return asdict(self)

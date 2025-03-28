@@ -20,6 +20,7 @@ class GlobalClient:
         self.vae_mu_target = vae_mu_target
         self.vae_sigma_target = vae_sigma_target
         self.iterations = 0
+        self.kl_weight = cfg.kl_weight
 
     
     def train(self, local_epochs):
@@ -51,7 +52,7 @@ class GlobalClient:
                 self.optimizer.zero_grad()
                 recon_batch, mu, log_var, z = self.model(data)
                 recon_loss, kl_loss = self.vae_loss(recon_batch, data, mu, log_var, mu_target=self.vae_mu_target)
-                loss = recon_loss + kl_loss
+                loss = recon_loss + self.kl_weight * kl_loss
                 loss.backward()
                 self.optimizer.step()
 

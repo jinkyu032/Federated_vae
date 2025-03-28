@@ -171,14 +171,17 @@ def plot_recontruction_from_noise(cfg, model, num_samples=10, device=None, mu=0,
 
 
 # visualize the latent space
-def visualize_manifold(model, num_samples=20, device=None, offset = (0, 0)):
+def visualize_manifold(model, num_samples=20, device=None, offset = (0, 0), do = True):
+    if not do:
+        return None
     x = norm.ppf(np.linspace(0.011, 0.99, num_samples)) + offset[0]
     y = norm.ppf(np.linspace(0.011, 0.99, num_samples)) + offset[1]
     inputs = [(i, j) for i in x for j in y]
     inputs_t = torch.tensor(inputs, dtype=torch.float32).to(device)  
     model.eval()  
     with torch.no_grad():
-        outputs = model.decoder(inputs_t)
+        #outputs = model.decoder(inputs_t)
+        outputs = model.decoder_forward(inputs_t)
     outputs = outputs.cpu().numpy()
     outputs = outputs.reshape(num_samples, num_samples, 28, 28)
     fig, axes = plt.subplots(num_samples, num_samples, figsize=(12, 12), subplot_kw={'xticks': [], 'yticks': []})

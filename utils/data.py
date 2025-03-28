@@ -5,7 +5,9 @@ __all__ = ['get_dataloaders', 'idx2onehot']
 
 def get_dataloaders(cfg):
     # Define transform
-    transform = transforms.ToTensor()
+    transform = transforms.Compose([
+        transforms.ToTensor()
+        ])
 
     # Load training datasets
     new_mirror = 'https://ossci-datasets.s3.amazonaws.com/mnist'

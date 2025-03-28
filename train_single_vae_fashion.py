@@ -39,14 +39,18 @@ class Config:
     ## Model Configs
     model_name: str = "vae"
     latent_dim: int = 2
+    batch_norm: bool = False
     conditional: bool = False
     num_total_classes: int = 20
     #hidden_dims: list = [512, 256]
+    use_classifier: bool = False
 
     ## Client Configs
     client_type: str = "base"    # ["base", "per_enc", "per_dec"]
     mnist_vae_mu_target: int = 0
     fashion_vae_mu_target: int = 0
+    kl_weight: float = 1
+    reduction: str = 'mean'
     
     ## Server Configs
     server_type: str = "base"
@@ -67,10 +71,17 @@ class Config:
 
     # Plot independent latents
     plot_independent_latents: bool = True
+    manifold: bool = False
+    problabelfeatures: bool = False
 
     @classmethod
-    def centralized_rounds200_epochs1(cls):
-        return cls(name="centralized_fashion_rounds200_epochs1", num_rounds=200, local_epochs=1)
+    def centralized_rounds200_epochs1_bn(cls):
+        return cls(name="centralized_fashion_rounds200_epochs1_bn", num_rounds=200, local_epochs=1, batch_norm=True)
+    
+
+    @classmethod
+    def centralized_rounds200_epochs1_conditional(cls):
+        return cls(name="centralized_fashion_rounds200_epochs1_conditional", num_rounds=200, local_epochs=1, conditional=True)
     
     def asdict(self):
         return asdict(self)
@@ -82,7 +93,6 @@ def get_config(exp_name="federated_rounds200_epochs1"):
 def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
 
     wandb_results = {}
-
     # Get Clients
     FashionClient = get_client(cfg, deepcopy(model), data_loaders["fashion_train"], cfg.fashion_vae_mu_target)
 
@@ -97,7 +107,10 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
 
         ## Eval && analysis
         figures_to_close = []
-        fashion_train_loss, fashion_train_recon_loss, fashion_train_kl_loss = compute_loss(FashionClient.model, fashion_loader, cfg.device, mu_target=cfg.fashion_vae_mu_target)
+        fashion_loss_dict = compute_loss(cfg, FashionClient.model, fashion_loader, cfg.device, mu_target=cfg.fashion_vae_mu_target)
+        fashion_train_loss = fashion_loss_dict['total_loss']
+        fashion_train_recon_loss = fashion_loss_dict['recon_loss']
+        fashion_train_kl_loss = fashion_loss_dict['kl_loss']
 
         wandb_results.update({
             "Fashion_train_loss": fashion_train_loss,
