@@ -74,6 +74,10 @@ class Config:
     manifold: bool = False
     problabelfeatures: bool = False
 
+    # Distance Based loss
+    alpha: float = 0
+    sample_p: float = 0
+
     @classmethod
     def centralized_rounds200_epochs1_bn(cls):
         return cls(name="centralized_fashion_rounds200_epochs1_bn", num_rounds=200, local_epochs=1, batch_norm=True)
@@ -105,6 +109,7 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         updated_model_state_dict, loss_dict = FashionClient.train(local_epochs)
         wandb_results.update(loss_dict, step=round_num + 1)
 
+        
         ## Eval && analysis
         figures_to_close = []
         fashion_loss_dict = compute_loss(cfg, FashionClient.model, fashion_loader, cfg.device, mu_target=cfg.fashion_vae_mu_target)
@@ -112,10 +117,12 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         fashion_train_recon_loss = fashion_loss_dict['recon_loss']
         fashion_train_kl_loss = fashion_loss_dict['kl_loss']
 
+
         wandb_results.update({
             "Fashion_train_loss": fashion_train_loss,
             "Fashion_train_recon_loss": fashion_train_recon_loss,
-            "Fashion_train_kl_loss": fashion_train_kl_loss
+            "Fashion_train_kl_loss": fashion_train_kl_loss,
+            "Fashion_train_dist_loss": fashion_train_dist_loss
         })
         
         if not cfg.analyze_local_models_before_update:

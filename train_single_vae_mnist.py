@@ -78,6 +78,7 @@ class Config:
     def centralized_rounds200_epochs1_conditional(cls):
         return cls(name="centralized_mnist_rounds200_epochs1_conditional", num_rounds=200, local_epochs=1, conditional=True)
 
+
     @classmethod
     def centralized_rounds200_epochs1(cls):
         return cls(name="centralized_mnist_rounds200_epochs1_latent4", num_rounds=200, local_epochs=1, latent_dim=4)
@@ -134,10 +135,12 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         mnist_train_recon_loss = mnist_loss_dict['recon_loss']
         mnist_train_kl_loss = mnist_loss_dict['kl_loss']
 
+
         wandb_results.update({
             "MNIST_train_loss": mnist_train_loss,
             "MNIST_train_recon_loss": mnist_train_recon_loss,
-            "MNIST_train_kl_loss": mnist_train_kl_loss
+            "MNIST_train_kl_loss": mnist_train_kl_loss,
+            "MNIST_train_dist_loss": mnist_train_dist_loss
         })
         
         # Analyzie MNISTClient.model

@@ -12,6 +12,7 @@ class VAE(nn.Module):
         self.conditional = conditional
         self.num_classes = num_classes
         self.batch_norm = batch_norm
+
             
         self.encoder = nn.Sequential(
             nn.Linear(784, hidden_dims[0]),

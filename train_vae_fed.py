@@ -72,6 +72,7 @@ class Config:
     classifier_bias: bool = True
     cosineclassifier: bool = False
 
+
     @classmethod
     def federated_rounds200_epochs1(cls):
         return cls(name="federated_rounds200_epochs1", num_rounds=200, local_epochs=1)
@@ -254,7 +255,7 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
 
     num_rounds = cfg.num_rounds
     local_epochs = cfg.local_epochs
-    
+   
     for round_num in tqdm(range(num_rounds)):
         
         # Train Clients
@@ -293,6 +294,7 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         fashion_train_loss = Fashion_loss_dict['total_loss']
         fashion_train_recon_loss = Fashion_loss_dict['recon_loss']
         fashion_train_kl_loss = Fashion_loss_dict['kl_loss']
+
 
         wandb_results.update({
             "MNIST_train_loss": mnist_train_loss,

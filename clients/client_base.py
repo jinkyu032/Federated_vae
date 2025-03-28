@@ -2,13 +2,14 @@ from utils.losses import vae_loss
 from torch import optim
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from typing import Dict, Optional
+from typing import Dict, Optional, Union
+from omegaconf import DictConfig
 from utils.logging_utils import AverageMeter
 __all__ = ['BaseClient']
 
 # Client class for federated learning
 class BaseClient:
-    def __init__(self, cfg: Dict, model: nn.Module, data_loader: Optional[DataLoader]=None, vae_mu_target: Optional[int]=None):
+    def __init__(self, cfg: Union[Dict, DictConfig], model: nn.Module, data_loader: Optional[DataLoader]=None, vae_mu_target: Optional[int]=None):
         self.cfg = cfg
         self.device = cfg.device
         self.data_loader = data_loader
@@ -18,13 +19,16 @@ class BaseClient:
         self.vae_mu_target = vae_mu_target
         self.kl_weight = cfg.kl_weight
 
+
     def train(self, local_epochs):
 
         loss_meter = AverageMeter('Loss', ':.2f')
         recon_loss_meter = AverageMeter('Recon Loss', ':.2f')
         kl_loss_meter = AverageMeter('KL Loss', ':.2f')
+
         #get the set of the target
         unique_values_set = set()
+
         self.model.train()
         for _ in range(local_epochs):
             for data, target in self.data_loader:
@@ -40,6 +44,7 @@ class BaseClient:
                 loss_meter.update(loss.item(), data.size(0))
                 recon_loss_meter.update(recon_loss.item(), data.size(0))
                 kl_loss_meter.update(kl_loss.item(), data.size(0))
+
                 # Convert tensor to numpy array and then to a set
                 batch_unique = set(target.cpu().numpy().flatten())
                 
@@ -48,13 +53,13 @@ class BaseClient:
 
         print("Target set: ", unique_values_set)
 
-
         
-        print(f"Training Loss: {loss_meter.avg:.2f}, Recon Loss: {recon_loss_meter.avg:.2f}, KL Loss: {kl_loss_meter.avg:.2f}")
+        print(f"Training Loss: {loss_meter.avg:.2f}, Recon Loss: {recon_loss_meter.avg:.2f}, KL Loss: {kl_loss_meter.avg:.2f}, Dist Loss: {dist_loss_meter.avg:.2f}")
         loss_dict = {
             "train_loss": loss_meter.avg,
             "train_recon_loss": recon_loss_meter.avg,
-            "train_kl_loss": kl_loss_meter.avg
+            "train_kl_loss": kl_loss_meter.avg,
+            "train_dist_loss": dist_loss_meter.avg,
         }
         return self.model.state_dict(), loss_dict
 

@@ -21,10 +21,12 @@ def compute_loss(cfg, model, data_loader, device, mu_target=0, reduction='sum'):
     recon_loss_sum = 0
     kl_loss_sum = 0
     correct = 0
+
     with torch.no_grad():
         for data, target in data_loader:
             data = data.to(device)
             target = target.to(device)
+
             if cfg.use_classifier:
                 recon_batch, mu, log_var, z, class_output = model(data, return_classfier_output=True)
                 _, predicted = torch.max(class_output.data, 1)
@@ -43,3 +45,4 @@ def compute_loss(cfg, model, data_loader, device, mu_target=0, reduction='sum'):
     if cfg.use_classifier:
         result['accuracy'] = 100 * correct / len(data_loader.dataset)
     return result
+
