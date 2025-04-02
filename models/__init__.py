@@ -15,11 +15,11 @@ def get_model(cfg: Union[Dict, DictConfig]):
     else:
         cfg_model = cfg
         
-    latent_dim = cfg.latent_dim
-    conditional = cfg.conditional
-    num_classes = cfg.num_total_classes
-    batch_norm = cfg.batch_norm
-    model_name = cfg.model_name
+    latent_dim = cfg_model.latent_dim
+    conditional = cfg_model.conditional
+    num_classes = cfg_model.num_total_classes
+    batch_norm = cfg_model.batch_norm
+    model_name = cfg_model.model_name
     
     if model_name == "vae":
         return VAE(latent_dim=latent_dim, conditional=conditional, num_classes=num_classes, batch_norm=batch_norm)
