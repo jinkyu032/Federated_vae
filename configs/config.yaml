@@ -31,6 +31,7 @@ analyze_local_models_before_update: false
 
 # Plot independent latents
 plot_independent_latents: true
+manifold: false
 
 # Distance Based loss
 alpha: 0
