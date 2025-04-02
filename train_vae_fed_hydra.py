@@ -59,13 +59,34 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         MNISTClient.update_model(server.global_model.state_dict())
         FashionClient.update_model(server.global_model.state_dict())
         
-        mnist_train_loss_avg, _, _, _ = compute_loss(MNISTClient.model, data_loaders["mnist_train"], cfg.device, mu_target=cfg.mnist_vae_mu_target, alpha=cfg.alpha) 
-        fashion_train_loss_avg, _, _, _ = compute_loss(FashionClient.model, data_loaders["fashion_train"], cfg.device, mu_target=cfg.fashion_vae_mu_target, alpha=cfg.alpha)
+        #mnist_train_loss, mnist_train_recon_loss, mnist_train_kl_loss = compute_loss(cfg, MNISTClient.model, mnist_loader, cfg.device, mu_target=cfg.mnist_vae_mu_target) 
+        MNIST_loss_dict = compute_loss(cfg, MNISTClient.model, data_loaders["mnist_train"], cfg.device, mu_target=cfg.mnist_vae_mu_target)
+        mnist_train_loss = MNIST_loss_dict['total_loss']
+        mnist_train_recon_loss = MNIST_loss_dict['recon_loss']
+        mnist_train_kl_loss = MNIST_loss_dict['kl_loss']
+
+        #fashion_train_loss, fashion_train_recon_loss, fashion_train_kl_loss = compute_loss(cfg, FashionClient.model, fashion_loader, cfg.device, mu_target=cfg.fashion_vae_mu_target)
+        Fashion_loss_dict = compute_loss(cfg, FashionClient.model, data_loaders["fashion_train"], cfg.device, mu_target=cfg.fashion_vae_mu_target)
+        fashion_train_loss = Fashion_loss_dict['total_loss']
+        fashion_train_recon_loss = Fashion_loss_dict['recon_loss']
+        fashion_train_kl_loss = Fashion_loss_dict['kl_loss']
 
         wandb_results.update({
-            "MNIST_train_loss": mnist_train_loss_avg,
-            "Fashion_train_loss": fashion_train_loss_avg,
+            "MNIST_train_loss": mnist_train_loss,
+            "Fashion_train_loss": fashion_train_loss,
+            "MNIST_train_recon_loss": mnist_train_recon_loss,
+            "Fashion_train_recon_loss": fashion_train_recon_loss,
+            "MNIST_train_kl_loss": mnist_train_kl_loss,
+            "Fashion_train_kl_loss": fashion_train_kl_loss
         })
+
+        if cfg.use_classifier:
+            mnist_train_accuracy = MNIST_loss_dict['accuracy']
+            fashion_train_accuracy = Fashion_loss_dict['accuracy']
+            wandb_results.update({
+                "MNIST_train_accuracy": mnist_train_accuracy,
+                "Fashion_train_accuracy": fashion_train_accuracy
+            })
         
         if not cfg.analyze_local_models_before_update:
             # Analyze MNISTClient.model
