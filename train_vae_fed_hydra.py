@@ -109,7 +109,7 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
             figures_to_close.append(ind_fig)
 
         wandb.log(wandb_results, step=round_num + 1)
-        print(f"Federated Round {round_num+1}/{num_rounds}, MNIST Train Loss: {mnist_train_loss_avg:.4f}, Fashion Train Loss: {fashion_train_loss_avg:.4f}, MNIST Test Loss: {wandb_results['server_mnist_test_loss']:.4f}, Fashion Test Loss: {wandb_results['server_fashion_test_loss']:.4f}")
+        print(f"Federated Round {round_num+1}/{num_rounds}, MNIST Train Loss: {mnist_train_loss:.4f}, Fashion Train Loss: {fashion_train_loss:.4f}, MNIST Test Loss: {wandb_results['server_mnist_test_loss']:.4f}, Fashion Test Loss: {wandb_results['server_fashion_test_loss']:.4f}")
 
         # Close figures
         for fig in figures_to_close:
