@@ -23,6 +23,7 @@ kl_weight: 1
 num_rounds: 200
 local_epochs: 1
 reduction: 'sum'
+use_classifier: false
 
 # Eval Configs
 eval_batch_size: 1000
