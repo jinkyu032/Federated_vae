@@ -22,6 +22,7 @@ lr: 1e-3
 kl_weight: 1
 num_rounds: 200
 local_epochs: 1
+reduction: 'sum'
 
 # Eval Configs
 eval_batch_size: 1000
