@@ -54,12 +54,11 @@ class BaseClient:
         print("Target set: ", unique_values_set)
 
         
-        print(f"Training Loss: {loss_meter.avg:.2f}, Recon Loss: {recon_loss_meter.avg:.2f}, KL Loss: {kl_loss_meter.avg:.2f}, Dist Loss: {dist_loss_meter.avg:.2f}")
+        print(f"Training Loss: {loss_meter.avg:.2f}, Recon Loss: {recon_loss_meter.avg:.2f}, KL Loss: {kl_loss_meter.avg:.2f}")
         loss_dict = {
             "train_loss": loss_meter.avg,
             "train_recon_loss": recon_loss_meter.avg,
-            "train_kl_loss": kl_loss_meter.avg,
-            "train_dist_loss": dist_loss_meter.avg,
+            "train_kl_loss": kl_loss_meter.avg
         }
         return self.model.state_dict(), loss_dict
 
