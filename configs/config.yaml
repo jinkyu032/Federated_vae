@@ -19,6 +19,7 @@ root: "/home/daeul/Federated_vae/data"
 # Federated Training Configs
 batch_size: 64
 lr: 1e-3
+kl_weight: 1
 num_rounds: 200
 local_epochs: 1
 
