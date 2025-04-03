@@ -1,12 +1,16 @@
 import torch
 import torch.nn as nn
-
+import numpy as np
+from collections import defaultdict
+import matplotlib.pyplot as plt
+import gc # Garbage collector for explicit memory management
+from sklearn.feature_selection import mutual_info_classif
 __all__ = ['vae_loss', 'compute_loss']
 
 # VAE loss function
 def vae_loss(recon_x, x, mu, log_var, mu_target=0, reduction='mean'):
     BCE = nn.functional.binary_cross_entropy(recon_x, x.view(-1, 784), reduction='sum')
-    KLD = -0.5 * torch.sum(2*mu_target*mu + 1 + log_var - mu.pow(2) - log_var.exp())
+    KLD = -0.5 * torch.sum(2*mu_target*mu + 1 + log_var - mu.pow(2) - log_var.exp() - mu_target*mu_target)
 
     if reduction == 'mean':
         BCE /= x.size(0)
@@ -31,7 +35,7 @@ def compute_loss(cfg, model, data_loader, device, mu_target=0, reduction='sum'):
                 correct += (predicted == target).sum().item()
             else:
                 recon_batch, mu, log_var, z = model(data, target)
-            recon_loss, kl_loss = vae_loss(recon_batch, data, mu, log_var, mu_target=mu_target)
+            recon_loss, kl_loss = vae_loss(recon_batch, data, mu, log_var, mu_target=mu_target, reduction = 'sum')
             total_loss_sum += (recon_loss.item() + cfg.kl_weight * kl_loss.item())
             recon_loss_sum += recon_loss.item()
             kl_loss_sum += kl_loss.item()
@@ -43,3 +47,6 @@ def compute_loss(cfg, model, data_loader, device, mu_target=0, reduction='sum'):
     if cfg.use_classifier:
         result['accuracy'] = 100 * correct / len(data_loader.dataset)
     return result
+
+
+

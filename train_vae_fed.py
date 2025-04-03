@@ -71,7 +71,7 @@ class Config:
     training_type: str = "fed"  # ["central", "fed"]
     classifier_bias: bool = True
     cosineclassifier: bool = False
-
+    analyze_latent_space: bool = True
     @classmethod
     def federated_rounds200_epochs1(cls):
         return cls(name="federated_rounds200_epochs1", num_rounds=200, local_epochs=1)
@@ -85,8 +85,68 @@ class Config:
         return cls(name="federated_rounds200_epochs1_latentdim22", num_rounds=200, local_epochs=1, latent_dim = 22, manifold=False)
 
     @classmethod
+    def federated_rounds200_epochs10_latentdim22(cls):
+        return cls(name="federated_rounds200_epochs10_latentdim22", num_rounds=200, local_epochs=10, latent_dim = 22, manifold=False)
+
+    @classmethod
     def federated_rounds200_epochs1_latentdim22_klw001(cls):
         return cls(name="federated_rounds200_epochs1_latentdim22_klw001", num_rounds=200, local_epochs=1, latent_dim = 22, manifold=False, kl_weight=0.01)
+
+    @classmethod
+    def federated_rounds200_epochs10_latentdim22_klw001(cls):
+        return cls(name="federated_rounds200_epochs10_latentdim22_klw001", num_rounds=200, local_epochs=10, latent_dim = 22, manifold=False, kl_weight=0.01)
+
+
+    @classmethod
+    def federated_rounds200_epochs1_latentdim44_klw001(cls):
+        return cls(name="federated_rounds200_epochs1_latentdim44_klw001", num_rounds=200, local_epochs=1, latent_dim = 44, manifold=False, kl_weight=0.01)
+
+    @classmethod
+    def federated_rounds200_epochs1_latentdim44_klw1(cls):
+        return cls(name="federated_rounds200_epochs1_latentdim44_klw1", num_rounds=200, local_epochs=1, latent_dim = 44, manifold=False, kl_weight=1)
+    @classmethod
+    def federated_rounds200_epochs1_latentdim44_klw3(cls):
+        return cls(name="federated_rounds200_epochs1_latentdim44_klw3", num_rounds=200, local_epochs=1, latent_dim = 44, manifold=False, kl_weight=3)
+    @classmethod
+    def federated_rounds200_epochs1_latentdim44_klw5(cls):
+        return cls(name="federated_rounds200_epochs1_latentdim44_klw5", num_rounds=200, local_epochs=1, latent_dim = 44, manifold=False, kl_weight=5)
+
+    @classmethod
+    def federated_rounds200_epochs1_latentdim22_klw5(cls):
+        return cls(name="federated_rounds200_epochs1_latentdim22_klw5", num_rounds=200, local_epochs=1, latent_dim = 22, manifold=False, kl_weight=5)
+    
+    @classmethod
+    def federated_rounds200_epochs10_latentdim22_klw5(cls):
+        return cls(name="federated_rounds200_epochs10_latentdim22_klw5", num_rounds=200, local_epochs=10, latent_dim = 22, manifold=False, kl_weight=5)
+    
+    @classmethod
+    def federated_rounds200_epochs1_latentdim22_klw3(cls):
+        return cls(name="federated_rounds200_epochs1_latentdim22_klw3", num_rounds=200, local_epochs=1, latent_dim = 22, manifold=False, kl_weight=3)
+
+    @classmethod
+    def federated_rounds200_epochs10_latentdim22_klw3(cls):
+        return cls(name="federated_rounds200_epochs10_latentdim22_klw3", num_rounds=200, local_epochs=10, latent_dim = 22, manifold=False, kl_weight=3)
+
+    @classmethod
+    def federated_rounds200_epochs1_latentdim22_klw0(cls):
+        return cls(name="federated_rounds200_epochs1_latentdim22_klw0", num_rounds=200, local_epochs=1, latent_dim = 22, manifold=False, kl_weight=0)
+
+    @classmethod
+    def federated_rounds200_epochs1_latentdim22_klw1(cls):
+        return cls(name="federated_rounds200_epochs1_latentdim22_klw1", num_rounds=200, local_epochs=1, latent_dim = 22, manifold=False, kl_weight=1)
+
+    @classmethod
+    def federated_rounds200_epochs1_latentdim22_differentmu_klw1(cls):
+        return cls(name="federated_rounds200_epochs1_latentdim22_differentmu_klw1", num_rounds=200, local_epochs=1, latent_dim = 22, manifold=False, kl_weight=1, mnist_vae_mu_target=5, fashion_vae_mu_target=-5)
+
+    
+    @classmethod
+    def federated_rounds200_epochs1_latentdim22_differentmu_klw001(cls):
+        return cls(name="federated_rounds200_epochs1_latentdim22_differentmu_klw001", num_rounds=200, local_epochs=1, latent_dim = 22, manifold=False, kl_weight=0.01, mnist_vae_mu_target=5, fashion_vae_mu_target=-5)
+
+    
+
+
     @classmethod
     def federated_rounds200_epochs1_latentdim42(cls):
         return cls(name="federated_rounds200_epochs1_latentdim42", num_rounds=200, local_epochs=1, latent_dim = 42, manifold=False)
@@ -102,7 +162,11 @@ class Config:
     @classmethod
     def federated_rounds200_epochs1_cvae_latentdim22(cls):
         return cls(name="federated_rounds200_epochs1_cvae_latentdim22", num_rounds=200, local_epochs=1, conditional=True, client_type="base", mnist_vae_mu_target=0, fashion_vae_mu_target=0, analyze_local_models_before_update=True, latent_dim=22)
-        
+
+    @classmethod
+    def federated_rounds200_epochs1_cvae_latentdim22_klw001(cls):
+        return cls(name="federated_rounds200_epochs1_cvae_latentdim22_klw001", num_rounds=200, local_epochs=1, conditional=True, client_type="base", mnist_vae_mu_target=0, fashion_vae_mu_target=0, analyze_local_models_before_update=True, latent_dim=22, kl_weight=0.01)
+       
 
     @classmethod
     def federated_rounds200_epochs1_wclassifier_reductionmean(cls):
@@ -130,12 +194,27 @@ class Config:
         return cls(name="federated_rounds200_epochs1_wclassifier_reductionsum", num_rounds=200, local_epochs=1, conditional=True, client_type="withclassifier", mnist_vae_mu_target=0, fashion_vae_mu_target=0, analyze_local_models_before_update=True, use_classifier=True, model_name="vaewithclassifier", reduction='sum')
 
     @classmethod
+    def federated_rounds200_epochs1_wclassifier_reductionsum_latentdim22_klw1(cls):
+        return cls(name="federated_rounds200_epochs1_wclassifier_reductionsum_latentdim22_klw1", num_rounds=200, local_epochs=1, conditional=True, client_type="withclassifier", mnist_vae_mu_target=0, fashion_vae_mu_target=0, analyze_local_models_before_update=True, use_classifier=True, model_name="vaewithclassifier", reduction='sum', latent_dim=22, kl_weight=1)
+
+    @classmethod
+    def federated_rounds200_epochs1_wclassifier_reductionsum_latentdim22_klw001(cls):
+        return cls(name="federated_rounds200_epochs1_wclassifier_reductionsum_latentdim22_klw001", num_rounds=200, local_epochs=1, conditional=True, client_type="withclassifier", mnist_vae_mu_target=0, fashion_vae_mu_target=0, analyze_local_models_before_update=True, use_classifier=True, model_name="vaewithclassifier", reduction='sum', latent_dim=22, kl_weight=0.01)
+
+
+
+
+    @classmethod
     def central_rounds200_epochs1_wclassifier_reductionsum(cls):
         return cls(name="central_rounds200_epochs1_wclassifier_reductionsum", num_rounds=200, local_epochs=1, conditional=True, client_type="withclassifier", mnist_vae_mu_target=0, fashion_vae_mu_target=0, analyze_local_models_before_update=True, use_classifier=True, model_name="vaewithclassifier", reduction='sum', training_type="central")
 
     @classmethod
     def central_rounds200_epochs1_wclassifier_reductionsum_latentdim22(cls):
         return cls(name="central_rounds200_epochs1_wclassifier_reductionsum_latentdim22", num_rounds=200, local_epochs=1, conditional=True, client_type="withclassifier", mnist_vae_mu_target=0, fashion_vae_mu_target=0, analyze_local_models_before_update=True, use_classifier=True, model_name="vaewithclassifier", reduction='sum', latent_dim=22, training_type="central")
+
+    @classmethod
+    def central_rounds200_epochs1_wclassifier_reductionsum_latentdim22_klw001(cls):
+        return cls(name="central_rounds200_epochs1_wclassifier_reductionsum_latentdim22_klw001", num_rounds=200, local_epochs=1, conditional=True, client_type="withclassifier", mnist_vae_mu_target=0, fashion_vae_mu_target=0, analyze_local_models_before_update=True, use_classifier=True, model_name="vaewithclassifier", reduction='sum', latent_dim=22, training_type="central", kl_weight=0.01)
 
 
 
@@ -269,14 +348,14 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         ## Eval && analysis
         figures_to_close = []
         
-        if cfg.analyze_local_models_before_update:
-            # Analyzie MNISTClient.model
-            MNIST_analysis = analyze_model(cfg, MNISTClient.model, f"Client 1 Round {round_num+1}", data_loaders=data_loaders, prefix="MNISTClient_")
-            wandb_results, figures_to_close = log_analysis(wandb_results, MNIST_analysis, figures_to_close)
-            
-            # Analyzie FashionClient.model
-            Fashion_analysis = analyze_model(cfg, FashionClient.model, f"Client 2 Round {round_num+1}", data_loaders=data_loaders, prefix="FashionClient_")
-            wandb_results, figures_to_close = log_analysis(wandb_results, Fashion_analysis, figures_to_close)
+        #if cfg.analyze_local_models_before_update:
+        # Analyzie MNISTClient.model
+        MNIST_analysis = analyze_model(cfg, MNISTClient.model, f"Client 1 Round {round_num+1}", data_loaders=data_loaders, prefix="MNISTClient_")
+        wandb_results, figures_to_close = log_analysis(wandb_results, MNIST_analysis, figures_to_close)
+        
+        # Analyzie FashionClient.model
+        Fashion_analysis = analyze_model(cfg, FashionClient.model, f"Client 2 Round {round_num+1}", data_loaders=data_loaders, prefix="FashionClient_")
+        wandb_results, figures_to_close = log_analysis(wandb_results, Fashion_analysis, figures_to_close)
 
         # Update Client Models
         MNISTClient.update_model(server.global_model.state_dict())
@@ -311,14 +390,14 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
                 "Fashion_train_accuracy": fashion_train_accuracy
             })
         
-        if not cfg.analyze_local_models_before_update:
-            # Analyzie MNISTClient.model
-            MNIST_analysis = analyze_model(cfg, MNISTClient.model, f"Client 1 Round {round_num+1}", data_loaders=data_loaders, prefix="MNISTClient_")
-            wandb_results, figures_to_close = log_analysis(wandb_results, MNIST_analysis, figures_to_close)
+        # if not cfg.analyze_local_models_before_update:
+            # # Analyzie MNISTClient.model
+            # MNIST_analysis = analyze_model(cfg, MNISTClient.model, f"Client 1 Round {round_num+1}", data_loaders=data_loaders, prefix="MNISTClient_")
+            # wandb_results, figures_to_close = log_analysis(wandb_results, MNIST_analysis, figures_to_close)
 
-            # Analyzie FashionClient.model
-            Fashion_analysis = analyze_model(cfg, FashionClient.model, f"Client 2 Round {round_num+1}", data_loaders=data_loaders, prefix="FashionClient_")
-            wandb_results, figures_to_close = log_analysis(wandb_results, Fashion_analysis, figures_to_close)
+            # # Analyzie FashionClient.model
+            # Fashion_analysis = analyze_model(cfg, FashionClient.model, f"Client 2 Round {round_num+1}", data_loaders=data_loaders, prefix="FashionClient_")
+            # wandb_results, figures_to_close = log_analysis(wandb_results, Fashion_analysis, figures_to_close)
 
         # Analyzie server.global_model
         server_analysis = analyze_model(cfg, server.global_model, f"Server Round {round_num+1}", data_loaders=data_loaders, prefix="server_")
@@ -332,7 +411,7 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
             figures_to_close.append(ind_fig)
 
         wandb.log(wandb_results, step=round_num + 1)
-        print(f"Federated Round {round_num+1}/{num_rounds}, MNIST Train Loss: {mnist_train_loss:.4f}, Fashion Train Loss: {fashion_train_loss:.4f}, MNIST Test Loss: {wandb_results['server_mnist_test_loss']:.4f}, Fashion Test Loss: {wandb_results['server_fashion_test_loss']:.4f}")
+        print(f"Federated Round {round_num+1}/{num_rounds}, MNIST Train Loss: {mnist_train_loss:.4f}, Fashion Train Loss: {fashion_train_loss:.4f}, MNIST Test Loss: {wandb_results['server_mnist_test_total_loss']:.4f}, Fashion Test Loss: {wandb_results['server_fashion_test_total_loss']:.4f}")
 
         # Close figures
         for fig in figures_to_close:
@@ -361,12 +440,19 @@ if __name__ == "__main__":
         batch_size=cfg.batch_size*2,
         shuffle=True
     )
+    combined_test_dataset = ConcatDataset([mnist_test_loader.dataset, fashion_test_loader.dataset])
+    combined_test_loader = DataLoader(
+        combined_test_dataset,
+        batch_size=cfg.eval_batch_size*2,
+        shuffle=False
+    )
     dataloaders = {
         "mnist_train": mnist_loader,
         "fashion_train": fashion_loader,
         "mnist_test": mnist_test_loader,
         "fashion_test": fashion_test_loader,
-        "combined_train": combined_train_loader
+        "combined_train": combined_train_loader,
+        "combined_test": combined_test_loader
     }
 
     # Get Model
