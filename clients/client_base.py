@@ -23,6 +23,8 @@ class BaseClient:
         loss_meter = AverageMeter('Loss', ':.2f')
         recon_loss_meter = AverageMeter('Recon Loss', ':.2f')
         kl_loss_meter = AverageMeter('KL Loss', ':.2f')
+        codebook_loss_meter = AverageMeter('Codebook Loss', ':.2f')
+        commitment_loss_meter = AverageMeter('Commitment Loss', ':.2f')
         #get the set of the target
         unique_values_set = set()
         self.model.train()
@@ -31,15 +33,33 @@ class BaseClient:
                 data = data.to(self.device)
                 target = target.to(self.device)
                 self.optimizer.zero_grad()
-                recon_batch, mu, log_var, z = self.model(data, target)
-                recon_loss, kl_loss = self.vae_loss(recon_batch, data, mu, log_var, mu_target=self.vae_mu_target, reduction = self.cfg.reduction)
-                loss = recon_loss + self.kl_weight * kl_loss
+                if self.cfg.vq:
+                    recon_batch, codebook_loss, commitment_loss = self.model(data, target)
+                    #breakpoint()
+                    recon_loss, _ = self.vae_loss(recon_batch, data, reconloss_only=True, reduction = self.cfg.reduction)
+                    if self.cfg.reduction == 'mean':
+                        codebook_loss = codebook_loss.mean()
+                        commitment_loss = commitment_loss.mean()
+                    elif self.cfg.reduction == 'sum':
+                        codebook_loss = codebook_loss.sum()
+                        commitment_loss = commitment_loss.sum()
+                    loss = recon_loss + codebook_loss + self.cfg.commitment_weight * commitment_loss
+
+                    codebook_loss_meter.update(codebook_loss.item(), data.size(0))
+                    commitment_loss_meter.update(commitment_loss.item(), data.size(0))
+
+
+                else:
+                    recon_batch, mu, log_var, z = self.model(data, target)
+                    recon_loss, kl_loss = self.vae_loss(recon_batch, data, mu, log_var, mu_target=self.vae_mu_target, reduction = self.cfg.reduction)
+                    loss = recon_loss + self.kl_weight * kl_loss
+                    kl_loss_meter.update(kl_loss.item(), data.size(0))
                 loss.backward()
                 self.optimizer.step()
 
                 loss_meter.update(loss.item(), data.size(0))
                 recon_loss_meter.update(recon_loss.item(), data.size(0))
-                kl_loss_meter.update(kl_loss.item(), data.size(0))
+                
                 # Convert tensor to numpy array and then to a set
                 batch_unique = set(target.cpu().numpy().flatten())
                 

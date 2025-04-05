@@ -79,12 +79,20 @@ class PlotCallback:
         model.eval()  # Set model to eval mode due to Dropout, BN, etc.
         with torch.no_grad():
             inputs, targets = self._batch_random_samples(dataloader)
-            outputs, mu, log_var, z = model(inputs, targets)  # Forward pass
+            if self.cfg.vq:
+                outputs, codebook_loss, commitment_loss = model(inputs, targets)
+                # recon_loss, kl_loss = vae_loss(outputs, inputs, mu, log_var)
+                # total_loss = recon_loss + kl_weight * kl_loss
+                z_ = None
+
+            else:
+                outputs, mu, log_var, z = model(inputs, targets)  # Forward pass
+                z_ = self._to_numpy(z)
 
             # Prepare data for plotting
             input_images = self._reshape_to_image(inputs, numpy=True)
             recon_images = self._reshape_to_image(outputs, numpy=True)
-            z_ = self._to_numpy(z)
+            
 
             fig = self._plot_samples(input_images, recon_images, z_)
 
@@ -109,7 +117,7 @@ class PlotCallback:
 
         # Create batch
         batch = torch.stack(samples)
-        batch = batch.view(batch.size(0), -1)  # Flatten
+        #batch = batch.view(batch.size(0), -1)  # Flatten
         batch = batch.to(self.device)
 
         targets = torch.tensor(targets, dtype=torch.long).to(self.device)
@@ -130,22 +138,37 @@ class PlotCallback:
 
     def _plot_samples(self, input_images, recon_images, z):
         """Creates plot figure and saves it on disk if save_dir is passed."""
-        fig, ax_lst = plt.subplots(self.num_samples, 3)
-        fig.suptitle("Input → Latent Z → Reconstructed")
+        if self.cfg.vq:
+            z = None
+            fig, ax_lst = plt.subplots(self.num_samples, 2)
+            fig.suptitle("Input →  Reconstructed")
 
-        for i in range(self.num_samples):
-            # Images
-            ax_lst[i][0].imshow(input_images[i], cmap="gray")
-            ax_lst[i][0].set_axis_off()
+            for i in range(self.num_samples):
+                # Images
+                ax_lst[i][0].imshow(input_images[i], cmap="gray")
+                ax_lst[i][0].set_axis_off()
 
-            # Variable z
-            ax_lst[i][1].bar(np.arange(len(z[i])), z[i])
 
-            # Reconstructed images
-            ax_lst[i][2].imshow(recon_images[i], cmap="gray")
-            ax_lst[i][2].set_axis_off()
+                # Reconstructed images
+                ax_lst[i][1].imshow(recon_images[i], cmap="gray")
+                ax_lst[i][1].set_axis_off()
+        else:
+            fig, ax_lst = plt.subplots(self.num_samples, 3)
+            fig.suptitle("Input → Latent Z → Reconstructed")
 
-        #fig.tight_layout()
+            for i in range(self.num_samples):
+                # Images
+                ax_lst[i][0].imshow(input_images[i], cmap="gray")
+                ax_lst[i][0].set_axis_off()
+
+                # Variable z
+                ax_lst[i][1].bar(np.arange(len(z[i])), z[i])
+
+                # Reconstructed images
+                ax_lst[i][2].imshow(recon_images[i], cmap="gray")
+                ax_lst[i][2].set_axis_off()
+
+            #fig.tight_layout()
         return fig
     
 def plot_recontruction_from_noise(cfg, model, num_samples=10, device=None, mu=0, std=1):

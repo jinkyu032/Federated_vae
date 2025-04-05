@@ -3,6 +3,7 @@ from .vaewithclassifier import VAEWithClassifier
 from .vaewithclassifier_parallel import VAEWithClassifier_parallel
 from .vaewithclassifier_partial import VAEWithClassifier_partial
 from .vaewithclassifier_partial_noreuse import VAEWithClassifier_partial_noreuse
+from .vqvae import VQVAE
 from typing import Dict
 
 
@@ -22,5 +23,7 @@ def get_model(cfg: Dict):
         return VAEWithClassifier_partial(latent_dim=latent_dim, num_classes=num_classes, batch_norm=batch_norm, cfg = cfg)
     elif cfg.model_name == "vaewithclassifier_partial_noreuse":
         return VAEWithClassifier_partial_noreuse(latent_dim=latent_dim, num_classes=num_classes, batch_norm=batch_norm, cfg = cfg)
+    elif cfg.model_name == "vqvae":
+        return VQVAE(latent_dim=latent_dim, conditional=conditional, num_classes=num_classes, batch_norm=batch_norm, cfg = cfg)
     else:
         raise ValueError(f"Invalid model name: {cfg.model_name}")

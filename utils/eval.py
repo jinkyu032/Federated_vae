@@ -30,13 +30,13 @@ def analyze_model(cfg, model, title, data_loaders: Dict[str, DataLoader],prefix=
         # fashion_test_loss = fashion_loss_dict['total_loss']
         # fashion_test_recon_loss = fashion_loss_dict['recon_loss']
         # fashion_test_kl_loss = fashion_loss_dict['kl_loss']
-        latent_fig = plot_latent_space(model, mnist_test_loader, fashion_test_loader, title, cfg.device)
+        #latent_fig = plot_latent_space(model, mnist_test_loader, fashion_test_loader, title, cfg.device)
         mnist_recon_fig = plot_callback(model, mnist_train_loader)
         fashion_recon_fig = plot_callback(model, fashion_train_loader)
         if not cfg.conditional:
             if cfg.mnist_vae_mu_target==cfg.fashion_vae_mu_target:
                 manifold_fig = visualize_manifold(model, device=cfg.device, offset=(cfg.mnist_vae_mu_target, cfg.mnist_vae_mu_target), do = cfg.manifold )
-                result_dict[prefix + 'manifold'] = manifold_fig
+                result_dict[prefix + 'manifold'] = manifold_fig   
             else:
                 mnist_manifold_fig = visualize_manifold(model, device=cfg.device, offset=(cfg.mnist_vae_mu_target, cfg.mnist_vae_mu_target),do = cfg.manifold )
                 fashion_manifold_fig = visualize_manifold(model, device=cfg.device, offset=(cfg.fashion_vae_mu_target, cfg.fashion_vae_mu_target), do = cfg.manifold )
@@ -45,12 +45,15 @@ def analyze_model(cfg, model, title, data_loaders: Dict[str, DataLoader],prefix=
 
 
         if cfg.analyze_latent_space:
-            latent_space_analysis_results = analyze_latent_space(cfg, model, combined_test_loader, cfg.device)
-            for key in latent_space_analysis_results.keys():
-                result_dict[prefix + key] = latent_space_analysis_results[key]
+            if cfg.vq:
+                print("Cannot Analyze latent space for VQ-VAE")
+            else:
+                latent_space_analysis_results = analyze_latent_space(cfg, model, combined_test_loader, cfg.device)
+                for key in latent_space_analysis_results.keys():
+                    result_dict[prefix + key] = latent_space_analysis_results[key]
 
 
-    result_dict[prefix + 'latent_space'] = latent_fig
+    #result_dict[prefix + 'latent_space'] = latent_fig
     result_dict[prefix + 'mnist_reconstructions'] = mnist_recon_fig
     result_dict[prefix + 'fashion_reconstructions'] = fashion_recon_fig
     # #result_dict[prefix + 'manifold_fig'] = manifold_fig

@@ -62,8 +62,8 @@ class Config:
     analyze_local_models_before_update: bool = False
 
     # Plot independent latents
-    plot_independent_latents: bool = True
-    manifold: bool = True
+    plot_independent_latents: bool = False
+    manifold: bool = False
     use_classifier: bool = False
     reduction: str = 'sum'
     problabelfeatures: bool = False
@@ -72,6 +72,9 @@ class Config:
     classifier_bias: bool = True
     cosineclassifier: bool = False
     analyze_latent_space: bool = True
+    vq: bool = False
+    commitment_weight: float = 0.2
+    num_embeddings: int = 32
     @classmethod
     def federated_rounds200_epochs1(cls):
         return cls(name="federated_rounds200_epochs1", num_rounds=200, local_epochs=1)
@@ -83,6 +86,17 @@ class Config:
     @classmethod
     def federated_rounds200_epochs1_latentdim22(cls):
         return cls(name="federated_rounds200_epochs1_latentdim22", num_rounds=200, local_epochs=1, latent_dim = 22, manifold=False)
+
+    @classmethod
+    def federated_rounds200_epochs1_latentdim22_vq(cls):
+        return cls(name="federated_rounds200_epochs1_latentdim22_vq", num_rounds=200, local_epochs=1, latent_dim = 22, manifold=False, vq=True, model_name="vqvae")
+    @classmethod
+    def federated_rounds200_epochs10_latentdim22_vq(cls):
+        return cls(name="federated_rounds200_epochs10_latentdim22_vq", num_rounds=200, local_epochs=10, latent_dim = 22, manifold=False, vq=True, model_name="vqvae")
+
+    @classmethod
+    def central_rounds200_epochs1_latentdim22_vq(cls):
+        return cls(name="central_rounds200_epochs1_latentdim22_vq", num_rounds=200, local_epochs=1, latent_dim = 22, manifold=False, vq=True, model_name="vqvae", training_type="central")
 
     @classmethod
     def federated_rounds200_epochs10_latentdim22(cls):
@@ -363,24 +377,28 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         
         #mnist_train_loss, mnist_train_recon_loss, mnist_train_kl_loss = compute_loss(cfg, MNISTClient.model, mnist_loader, cfg.device, mu_target=cfg.mnist_vae_mu_target) 
         MNIST_loss_dict = compute_loss(cfg, MNISTClient.model, data_loaders["mnist_train"], cfg.device, mu_target=cfg.mnist_vae_mu_target)
-        mnist_train_loss = MNIST_loss_dict['total_loss']
-        mnist_train_recon_loss = MNIST_loss_dict['recon_loss']
-        mnist_train_kl_loss = MNIST_loss_dict['kl_loss']
+        # mnist_train_loss = MNIST_loss_dict['total_loss']
+        # mnist_train_recon_loss = MNIST_loss_dict['recon_loss']
+        # mnist_train_kl_loss = MNIST_loss_dict['kl_loss']
+        for key in MNIST_loss_dict:
+            wandb_results[f"MNIST_train_{key}"] = MNIST_loss_dict[key]
 
         #fashion_train_loss, fashion_train_recon_loss, fashion_train_kl_loss = compute_loss(cfg, FashionClient.model, fashion_loader, cfg.device, mu_target=cfg.fashion_vae_mu_target)
         Fashion_loss_dict = compute_loss(cfg, FashionClient.model, data_loaders["fashion_train"], cfg.device, mu_target=cfg.fashion_vae_mu_target)
-        fashion_train_loss = Fashion_loss_dict['total_loss']
-        fashion_train_recon_loss = Fashion_loss_dict['recon_loss']
-        fashion_train_kl_loss = Fashion_loss_dict['kl_loss']
+        # fashion_train_loss = Fashion_loss_dict['total_loss']
+        # fashion_train_recon_loss = Fashion_loss_dict['recon_loss']
+        # fashion_train_kl_loss = Fashion_loss_dict['kl_loss']
+        for key in Fashion_loss_dict:
+            wandb_results[f"Fashion_train_{key}"] = Fashion_loss_dict[key]
 
-        wandb_results.update({
-            "MNIST_train_loss": mnist_train_loss,
-            "Fashion_train_loss": fashion_train_loss,
-            "MNIST_train_recon_loss": mnist_train_recon_loss,
-            "Fashion_train_recon_loss": fashion_train_recon_loss,
-            "MNIST_train_kl_loss": mnist_train_kl_loss,
-            "Fashion_train_kl_loss": fashion_train_kl_loss
-        })
+        # wandb_results.update({
+        #     "MNIST_train_loss": mnist_train_loss,
+        #     "Fashion_train_loss": fashion_train_loss,
+        #     "MNIST_train_recon_loss": mnist_train_recon_loss,
+        #     "Fashion_train_recon_loss": fashion_train_recon_loss,
+        #     "MNIST_train_kl_loss": mnist_train_kl_loss,
+        #     "Fashion_train_kl_loss": fashion_train_kl_loss
+        # })
 
         if cfg.use_classifier:
             mnist_train_accuracy = MNIST_loss_dict['accuracy']
@@ -411,7 +429,7 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
             figures_to_close.append(ind_fig)
 
         wandb.log(wandb_results, step=round_num + 1)
-        print(f"Federated Round {round_num+1}/{num_rounds}, MNIST Train Loss: {mnist_train_loss:.4f}, Fashion Train Loss: {fashion_train_loss:.4f}, MNIST Test Loss: {wandb_results['server_mnist_test_total_loss']:.4f}, Fashion Test Loss: {wandb_results['server_fashion_test_total_loss']:.4f}")
+        #print(f"Federated Round {round_num+1}/{num_rounds}, MNIST Train Loss: {mnist_train_loss:.4f}, Fashion Train Loss: {fashion_train_loss:.4f}, MNIST Test Loss: {wandb_results['server_mnist_test_total_loss']:.4f}, Fashion Test Loss: {wandb_results['server_fashion_test_total_loss']:.4f}")
 
         # Close figures
         for fig in figures_to_close:
