@@ -67,10 +67,18 @@ class VAEWithClassifier_partial_noreuse(nn.Module):
         # Decoder
         recon_x = self.decoder(z_combined)
 
-        if return_classfier_output:
-            return recon_x, mu, log_var, z, class_output
-        else:
-            return recon_x, mu, log_var, z
+        # if return_classfier_output:
+        #     return recon_x, mu, log_var, z, class_output
+        # else:
+        #     return recon_x, mu, log_var, z
+
+        result_dict = {
+            "recon_x": recon_x,
+            "mu": mu,
+            "log_var": log_var,
+            "z": z
+        }
+        return result_dict
 
     def encoder_forward(self, x):
         x = x.view(-1, 784)

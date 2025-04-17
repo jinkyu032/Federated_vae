@@ -67,10 +67,17 @@ class VAEWithClassifier_partial(nn.Module):
         # Decoder
         recon_x = self.decoder(z_combined)
 
-        if return_classfier_output:
-            return recon_x, mu, log_var, z, class_output
-        else:
-            return recon_x, mu, log_var, z
+        # if return_classfier_output:
+        #     return recon_x, mu, log_var, z, class_output
+        # else:
+        #     return recon_x, mu, log_var, z
+        result_dict = {
+            "mu": mu,
+            "log_var": log_var,
+            "z": z,
+            "recon_x": recon_x
+        }
+        return result_dict
 
     def encoder_forward(self, x):
         x = x.view(-1, 784)

@@ -42,7 +42,7 @@ class VAE(nn.Module):
         eps = torch.randn_like(std)
         return mu + eps * std
 
-    def forward(self, x, c=None):
+    def forward(self, x, c=None, *args, **kwargs):
         
         x = x.view(-1, 784)
 
@@ -58,7 +58,14 @@ class VAE(nn.Module):
             z = torch.cat((z, c), dim=-1)
 
         recon_x = self.decoder(z)
-        return recon_x, mu, log_var, z
+        # return recon_x, mu, log_var, z
+        result_dict = {
+            "recon_x": recon_x,
+            "mu": mu,
+            "log_var": log_var,
+            "z": z
+        }
+        return result_dict
 
     def encoder_forward(self, x, c=None):
         x = x.view(-1, 784)
@@ -77,3 +84,17 @@ class VAE(nn.Module):
             z = torch.cat((z, c), dim=-1)
 
         return self.decoder(z)
+    def freeze_encoder(self):
+        for param in self.encoder.parameters():
+            param.requires_grad = False
+    def unfreeze_encoder(self):
+        for param in self.encoder.parameters():
+            param.requires_grad = True
+
+    def freeze_decoder(self):
+        for param in self.decoder.parameters():
+            param.requires_grad = False
+    def unfreeze_decoder(self):
+        for param in self.decoder.parameters():
+            param.requires_grad = True
+            
