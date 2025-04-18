@@ -8,6 +8,8 @@ import torch.nn as nn
 from collections import defaultdict
 import gc # Garbage collector for explicit memory management
 from sklearn.feature_selection import mutual_info_classif
+import math # For calculating grid size
+from torch.utils.data import DataLoader
 
 __all__ = ['plot_latent_space', 'plot_latent_per_client', 'plot_latent_per_client', 'plot_recontruction_from_noise', 'analyze_latent_space']
 
@@ -64,7 +66,7 @@ def plot_latent_per_client(mnist_model, fashion_model, data_loaders: Dict[str, D
 #From bvezilic/Variational-autoencoder
 class PlotCallback:
     """Callback class that retrieves several samples and displays model reconstructions"""
-    def __init__(self, cfg, num_samples=10, save_dir=None, device=None):
+    def __init__(self, cfg, num_samples=10, save_dir=None, device=None, *args, **kwargs):
         self.num_samples = num_samples
         self.device = device
         self.cfg = cfg
@@ -75,7 +77,7 @@ class PlotCallback:
         # if self.save_dir and not os.path.exists(self.save_dir):
         #     os.makedirs(self.save_dir)
 
-    def __call__(self, model, dataloader):
+    def __call__(self, model, dataloader, *args, **kwargs):
         model.eval()  # Set model to eval mode due to Dropout, BN, etc.
         with torch.no_grad():
             inputs, targets = self._batch_random_samples(dataloader)
@@ -86,7 +88,15 @@ class PlotCallback:
                 z_ = None
 
             else:
-                outputs, mu, log_var, z = model(inputs, targets)  # Forward pass
+                predicted_idxs = None
+                if self.cfg.client_classifier:
+                    result = model(inputs, return_classfier_output=True)
+                    outputs, mu, log_var, z, class_output = result['recon_x'], result['mu'], result['log_var'], result['z'], result['client_class_output']
+                    predicted_idxs = result['client_idxs']
+                else:
+                    result = model(inputs, targets)
+                    outputs, mu, log_var, z = result['recon_x'], result['mu'], result['log_var'], result['z']
+                # outputs, mu, log_var, z = model(inputs, targets)  # Forward pass
                 z_ = self._to_numpy(z)
 
             # Prepare data for plotting
@@ -94,7 +104,7 @@ class PlotCallback:
             recon_images = self._reshape_to_image(outputs, numpy=True)
             
 
-            fig = self._plot_samples(input_images, recon_images, z_)
+            fig = self._plot_samples(input_images, recon_images, z_, predicted_idxs = predicted_idxs)
 
         model.train()  # Return to train mode
         return fig
@@ -136,7 +146,7 @@ class PlotCallback:
         """Helper function that converts tensor to numpy"""
         return tensor.cpu().numpy()
 
-    def _plot_samples(self, input_images, recon_images, z):
+    def _plot_samples(self, input_images, recon_images, z, *args, **kwargs):
         """Creates plot figure and saves it on disk if save_dir is passed."""
         if self.cfg.vq:
             z = None
@@ -152,6 +162,27 @@ class PlotCallback:
                 # Reconstructed images
                 ax_lst[i][1].imshow(recon_images[i], cmap="gray")
                 ax_lst[i][1].set_axis_off()
+
+        elif self.cfg.client_classifier:
+            predicted_idxs = kwargs['predicted_idxs']
+            assert predicted_idxs is not None
+            fig, ax_lst = plt.subplots(self.num_samples, 3)
+            fig.suptitle("Input → Latent Z → Reconstructed")
+            for i in range(self.num_samples):
+                # Images
+                ax_lst[i][0].imshow(input_images[i], cmap="gray")
+                ax_lst[i][0].set_axis_off()
+
+                # Variable z
+                ax_lst[i][1].bar(np.arange(len(z[i])), z[i])
+
+                # Reconstructed images
+                ax_lst[i][2].imshow(recon_images[i], cmap="gray")
+                ax_lst[i][2].set_axis_off()
+
+                # Client idx
+                ax_lst[i][1].set_title(f"Client label predict: {predicted_idxs[i]}")
+
         else:
             fig, ax_lst = plt.subplots(self.num_samples, 3)
             fig.suptitle("Input → Latent Z → Reconstructed")
@@ -198,7 +229,8 @@ def plot_recontruction_from_noise(cfg, model, num_samples=10, device=None, mu=0,
 
 
 # visualize the latent space
-def visualize_manifold(model, num_samples=20, device=None, offset = (0, 0), do = True):
+def visualize_manifold(model, num_samples=20, device=None, offset = (0, 0), do = True, client_classifier = False, *args, **kwargs):
+
     if not do:
         return None
     x = norm.ppf(np.linspace(0.011, 0.99, num_samples)) + offset[0]
@@ -208,7 +240,11 @@ def visualize_manifold(model, num_samples=20, device=None, offset = (0, 0), do =
     model.eval()  
     with torch.no_grad():
         #outputs = model.decoder(inputs_t)
-        outputs = model.decoder_forward(inputs_t)
+        if client_classifier:
+            outputs = model.decoder_forward(inputs_t, kwargs['client_idx'])
+            #outputs = result['recon_x']
+        else:
+            outputs = model.decoder_forward(inputs_t)
     outputs = outputs.cpu().numpy()
     outputs = outputs.reshape(num_samples, num_samples, 28, 28)
     fig, axes = plt.subplots(num_samples, num_samples, figsize=(12, 12), subplot_kw={'xticks': [], 'yticks': []})
@@ -235,7 +271,7 @@ def visualize_manifold(model, num_samples=20, device=None, offset = (0, 0), do =
 
 # --- Latent Space Analysis Function (cuML version for Class-Specific MI) ---
 
-def analyze_latent_space(cfg, model, data_loader, device, **kwargs):
+def analyze_latent_space(cfg, model, data_loader, device, *args, **kwargs):
     """
     Analyzes the latent space using scikit-learn for CLASS-SPECIFIC MI.
 
@@ -511,7 +547,7 @@ def analyze_latent_space(cfg, model, data_loader, device, **kwargs):
 
 # --- Plotting Helper Functions (Remain the same, use NumPy arrays) ---
 
-def plot_stat_heatmap(class_channel_stats, stat_key, num_classes, latent_dim, title):
+def plot_stat_heatmap(class_channel_stats, stat_key, num_classes, latent_dim, title, *args, **kwargs):
     stat_matrix = np.full((num_classes, latent_dim), np.nan)
     for c in range(num_classes):
         for k in range(latent_dim):
@@ -559,4 +595,98 @@ def plot_mi_per_class_heatmap(mi_scores_per_class, num_classes, latent_dim):
     ax.set_title('Mutual Information(Channel k; Is Class c?)')
     plt.colorbar(im, label='Mutual Information Score')
     plt.tight_layout()
+    return fig
+
+
+
+
+def log_synthetic_batch_wandb(
+    synthetic_dataloader: DataLoader,
+    num_samples: int = 64,
+    wandb_log_key: str = "synthetic_batch_visualization",
+    caption: str = "Sample Batch from Synthetic Dataset",
+    epoch: int = None # Optional epoch/step number for logging
+    ):
+    """
+    Visualizes a batch of data from the synthetic dataloader and logs it to wandb.
+
+    Args:
+        synthetic_dataloader: DataLoader containing the synthetic data (images, labels).
+        num_samples: Max number of samples to visualize in the grid.
+        wandb_log_key: The key name for logging the image in wandb.
+        caption: Caption for the wandb image.
+        epoch: Optional epoch/step number to associate with the wandb log.
+    """
+    # if not wandb.run:
+    #     print("Warning: wandb run not initialized. Skipping synthetic batch logging.")
+    #     return
+
+    try:
+        # Get one batch from the dataloader
+        batch_data, batch_labels = next(iter(synthetic_dataloader))
+    except StopIteration:
+        print("Warning: Synthetic dataloader is empty. Cannot visualize batch.")
+        return
+    except Exception as e:
+        print(f"Warning: Error getting batch from synthetic dataloader: {e}")
+        return
+
+    # Ensure we don't try to plot more samples than available in the batch
+    num_samples = min(num_samples, batch_data.size(0))
+    if num_samples == 0:
+        print("Warning: No samples in the batch to visualize.")
+        return
+
+    # Move data to CPU for plotting
+    batch_data_cpu = batch_data[:num_samples].cpu()
+    batch_labels_cpu = batch_labels[:num_samples].cpu()
+
+    # Determine grid size (aim for roughly square)
+    ncols = int(math.ceil(math.sqrt(num_samples)))
+    nrows = int(math.ceil(num_samples / ncols))
+
+    fig, axes = plt.subplots(nrows, ncols, figsize=(ncols * 1.5, nrows * 1.7)) # Adjust figsize as needed
+    fig.suptitle(caption, fontsize=14)
+
+    for i in range(num_samples):
+        row = i // ncols
+        col = i % ncols
+        ax = axes[row, col] if nrows > 1 else axes[col] # Handle single row case
+
+        # Get image and label
+        img_tensor = batch_data_cpu[i]
+        label = batch_labels_cpu[i].item()
+
+        # --- Adjust image tensor shape for imshow ---
+        # Matplotlib expects (H, W) or (H, W, C). VAE output might be (C, H, W).
+        if img_tensor.dim() == 3 and img_tensor.shape[0] == 1: # Grayscale (1, H, W)
+            img_np = img_tensor.squeeze(0).numpy() # Remove channel dim -> (H, W)
+            cmap = 'gray'
+        elif img_tensor.dim() == 3 and img_tensor.shape[0] == 3: # Color (3, H, W)
+             # Transpose channels for Matplotlib: (H, W, C)
+            img_np = img_tensor.permute(1, 2, 0).numpy()
+            cmap = None # Use default colormap for RGB
+        elif img_tensor.dim() == 2: # Already (H, W)
+            img_np = img_tensor.numpy()
+            cmap = 'gray'
+        else:
+            #print(f"Warning: Unsupported image tensor shape {img_tensor.shape} for sample {i}. Skipping display.")
+            img_np = img_tensor.reshape(28, 28).numpy() # Assuming 28x28 for VAE
+            cmap = 'gray'
+            #label = 'Error'
+        # --------------------------------------------
+
+        ax.imshow(img_np, cmap=cmap)
+        ax.set_title(f"Label: {label}")
+        ax.axis('off')
+
+    # Turn off axes for any unused subplots
+    for i in range(num_samples, nrows * ncols):
+        row = i // ncols
+        col = i % ncols
+        ax = axes[row, col] if nrows > 1 else axes[col]
+        ax.axis('off')
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust layout to prevent title overlap
+
     return fig

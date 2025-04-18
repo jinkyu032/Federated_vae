@@ -2,21 +2,26 @@ from .client_base import BaseClient
 from .client_per import PerEncClient, PerDecClient
 from .client_global import GlobalClient
 from .client_withclassifier import VAEClassifierClient
+from .client_withclientclassifier import VAEClientClassifierClient
 from typing import Dict, Optional
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
 
-def get_client(cfg: Dict, model: nn.Module, data_loader: Optional[DataLoader]=None, vae_loss_type: Optional[str]=None):
+def get_client(cfg: Dict, model: nn.Module, data_loader: Optional[DataLoader]=None, vae_loss_type: Optional[str]=None, *args, **kwargs):
+
     if cfg.client_type == "base":
-        return BaseClient(cfg, model, data_loader, vae_loss_type)
+        return BaseClient(cfg, model, data_loader, vae_loss_type, *args, **kwargs)
     elif cfg.client_type == "per_enc":
-        return PerEncClient(cfg, model, data_loader, vae_loss_type)
+        return PerEncClient(cfg, model, data_loader, vae_loss_type, *args, **kwargs)
     elif cfg.client_type == "per_dec":
-        return PerDecClient(cfg, model, data_loader, vae_loss_type)
+        return PerDecClient(cfg, model, data_loader, vae_loss_type, *args, **kwargs)
     elif cfg.client_type == "global":
-        return GlobalClient(cfg, model, data_loader, vae_loss_type)
+        return GlobalClient(cfg, model, data_loader, vae_loss_type, *args, **kwargs)
     elif cfg.client_type == "withclassifier":
-        return VAEClassifierClient(cfg, model, data_loader, vae_loss_type)
+        return VAEClassifierClient(cfg, model, data_loader, vae_loss_type, *args, **kwargs)
+    elif cfg.client_type == "withclientclassifier":
+        return VAEClientClassifierClient(cfg, model, data_loader, vae_loss_type, *args, **kwargs)
+
     else:
         raise ValueError(f"Invalid client type: {cfg.client_type}")

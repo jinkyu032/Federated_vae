@@ -18,6 +18,9 @@ class VAEClientClassifierClient(VAEClassifierClient):
     def __init__(self, cfg: Dict, model: nn.Module, data_loader: Optional[DataLoader] = None, vae_mu_target: Optional[int] = None, *args, **kwargs):
         super(VAEClientClassifierClient, self).__init__(cfg=cfg, model=model, data_loader=data_loader, vae_mu_target=vae_mu_target, *args, **kwargs)
         self.client_idx = kwargs.get('client_idx', None)
+        self.subset_id = kwargs.get('subset_id', None)  # Assuming subset_id is passed in kwargs
+        self.cfg = cfg
+        
         if self.client_idx is None:
             raise ValueError("client_idx must be provided in the config.")
 
@@ -61,8 +64,7 @@ class VAEClientClassifierClient(VAEClassifierClient):
                 if self.use_consistency_loss and self.num_of_clients > 1:
                     with torch.no_grad():
 
-                        combined_client_idxs_for_decoder = torch.ones(data.size(0), dtype=torch.long, device=self.device) * self.client_idx
-
+                        combined_client_idxs_for_decoder = torch.ones(data.size(0), dtype=torch.long, device=self.device) * self.subset_id if self.cfg.condition_subset else self.client_idx
                         consistency_loss = torch.tensor(0.0, device=self.device) # Initialize loss for this iteration
                         # 1. Sample other client IDs
                         all_client_indices = list(range(self.num_of_clients))

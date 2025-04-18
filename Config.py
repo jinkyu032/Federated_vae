@@ -22,7 +22,7 @@ from utils.visualize import plot_latent_per_client
 
 from tqdm import tqdm
 import gc
-
+from typing import Optional
 
 
 @dataclass
@@ -97,6 +97,58 @@ class Config:
 
     finetune_last_model: bool = False
     finetune_gen_global_model: bool = False
+    finetune_kl_weight: float = -1
+
+
+
+
+    #for V2
+    seed: int = 42
+
+    ## Data & Federated Splitting
+    data_dir: str = "./data"
+    num_workers: int = 4
+    num_clients: int = 100 # Changed default
+    split_mode: str = "skew" # 'iid', 'noniid-class'('skew'), 'noniid-dirichlet'
+    num_subsets: int = 5 # REQUIRED for 2-stage split
+    num_classes_per_client: Optional[int] = 2 # REQUIRED for noniid-class within subset
+    dirichlet_alpha: Optional[float] = 0.3    # REQUIRED for noniid-dirichlet within subset
+    dirichlet_min_samples: int = 10           # Optional for dirichlet
+    force_resplit: bool = False               # Optional cache control
+    log_client_distribution: bool = True      # Optional logging
+    client_split_path: str = "./client_data" # Optional cache path
+
+    ## Training (Federated)
+    participation_rate: float = 0.05
+    local_lr_decay: float = 1.0
+    # mu_target needs dynamic assignment logic based on subset
+    # mnist_vae_mu_target: float = 0.0 # Placeholder/Default for subset 0
+    # fashion_vae_mu_target: float = 0.0 # Placeholder/Default for subset 1
+
+    ## Server
+    server_momentum: float = 0.0 # Example server param
+
+    ## Eval & Analysis
+    eval_freq: int = 1
+    num_local_clients_to_analyze: int = 2
+    #analyze_latent_space: bool = False
+    use_mu_for_analysis: bool = False
+    mi_n_neighbors: int = 5
+    mi_subsample_ratio: Optional[float] = None
+    log_synthetic_freq: int = 10
+
+    ## Fine-tuning
+    #num_synthetic_samples_per_client: int = 10000 # Changed default
+    finetune_batch_size: int = 128
+    finetune_init_from_global: bool = True
+    finetune_model_name: str = "vae"
+    finetune_epochs: int = 100
+    finetune_lr: Optional[float] = None
+    analyze_finetuned_freq: int = 5
+    log_finetuned_synthetic_freq: int = 10
+    save_finetuned_model: bool = True
+
+
 
 
     def get(self, key, default=None):
@@ -130,6 +182,19 @@ class Config:
     @classmethod
     def federated_rounds200_epochs1_klw0_latentdim22_lastfinetune(cls):
         return cls(name="federated_rounds200_epochs1_klw0_latentdim22_lastfinetune", num_rounds=200, local_epochs=1, kl_weight=0, latent_dim=22, finetune_last_model=True)
+
+    @classmethod
+    def federated_rounds200_epochs1_klw01_latentdim22_lastfinetune(cls):
+        return cls(name="federated_rounds200_epochs1_klw01_latentdim22_lastfinetune", num_rounds=200, local_epochs=1, kl_weight=0.1, latent_dim=22, finetune_last_model=True)
+
+    @classmethod
+    def federated_rounds200_epochs1_klw01_latentdim22_lastfinetuneklw1(cls):
+        return cls(name="federated_rounds200_epochs1_klw01_latentdim22_lastfinetuneklw1", num_rounds=200, local_epochs=1, kl_weight=0.1, latent_dim=22, finetune_last_model=True, finetune_kl_weight=1)
+
+
+    @classmethod
+    def federated_rounds200_epochs1_klw01_latentdim22_lastfinetuneklw1_globalgen(cls):
+        return cls(name="federated_rounds200_epochs1_klw01_latentdim22_lastfinetuneklw1_globalgen", num_rounds=200, local_epochs=1, kl_weight=0.1, latent_dim=22, finetune_last_model=True, finetune_kl_weight=1, finetune_gen_global_model=True)
 
 
     @classmethod

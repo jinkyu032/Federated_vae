@@ -23,6 +23,7 @@ from utils.visualize import plot_latent_per_client, plot_recontruction_from_nois
 from tqdm import tqdm
 import gc
 import os
+from Config import Config, get_config
 
 
 @dataclass

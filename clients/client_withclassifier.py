@@ -11,9 +11,11 @@ __all__ = ['VAEClassifierClient']
 
 # Client class for federated learning with VAE and Classifier
 class VAEClassifierClient:
-    def __init__(self, cfg: Dict, model: nn.Module, data_loader: Optional[DataLoader] = None, vae_mu_target: Optional[int] = None):
+    def __init__(self, cfg: Dict, model: nn.Module, data_loader: Optional[DataLoader] = None, vae_mu_target: Optional[int] = None, *args, **kwargs):
         self.cfg = cfg
         self.device = cfg.device
+        self.client_idx = kwargs.get('client_idx', None)
+        self.subset_id = kwargs.get('subset_id', None)
         self.data_loader = data_loader
         self.model = model.to(self.device)
         self.optimizer = optim.Adam(self.model.parameters(), lr=cfg.lr)
@@ -25,6 +27,7 @@ class VAEClassifierClient:
         # else:
         self.classifier_loss = CrossEntropyLoss(reduction=cfg.reduction)  # Loss for classifier
         self.use_classifier = cfg.use_classifier  # Set to False if you don't want to use classifier
+        self.embedding_dim = cfg.embedding_dim  # Dimension of the embedding
 
     def train(self, local_epochs):
 
@@ -40,7 +43,9 @@ class VAEClassifierClient:
                 target = target.to(self.device)
                 self.optimizer.zero_grad()
 
-                recon_batch, mu, log_var, z, class_output = self.model(data, return_classfier_output=self.use_classifier)
+                #recon_batch, mu, log_var, z, class_output = self.model(data, return_classfier_output=self.use_classifier)
+                result = self.model(data, return_classfier_output=self.use_classifier)
+                recon_batch, mu, log_var, z, class_output = result['recon_batch'], result['mu'], result['log_var'], result['z'], result['class_output']
 
                 # VAE Loss
                 recon_loss, kl_loss = self.vae_loss(recon_batch, data, mu, log_var, mu_target=self.vae_mu_target, reduction = self.cfg.reduction)

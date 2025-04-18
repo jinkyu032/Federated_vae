@@ -13,6 +13,7 @@ class VAEWithClientClassifier(nn.Module):
         self.batch_norm = batch_norm
         self.cfg = cfg
         self.embedding_dim = cfg.embedding_dim
+        self.num_subsets = cfg.num_subsets
 
         #num_of_clients = cfg.num_clients
         # embedding_dim = cfg.embedding_dim
@@ -21,7 +22,7 @@ class VAEWithClientClassifier(nn.Module):
         # client_embeddings = F.normalize(client_embeddings, dim=1)
 
         self.num_of_clients = cfg.num_clients
-        self.client_embeddings = nn.Parameter(torch.randn(self.num_of_clients, self.embedding_dim), requires_grad=False)
+        self.client_embeddings = nn.Parameter(torch.randn(self.num_subsets if cfg.condition_subset else self.num_of_clients, self.embedding_dim), requires_grad=False)
         self.client_embeddings.requires_grad = False
         #self.client_embeddings = torch.tensor([[1.0,0.0],[0.0,1.0]]).to(cfg.device)
         # self.client_idx = None

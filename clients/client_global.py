@@ -14,6 +14,8 @@ class GlobalClient:
         self.cfg = cfg
         self.device = cfg.device
         self.data_loader = data_loader
+        self.client_idx = kwargs.get('client_idx', None)
+        self.subset_id = kwargs.get('subset_id', None)
         self.model = model.to(self.device)
         self.optimizer = optim.Adam(self.model.parameters(), lr=cfg.lr)
         self.vae_loss = vae_loss
@@ -50,7 +52,9 @@ class GlobalClient:
                 data = torch.cat((mnist_data, fashion_data), dim=0)
                 
                 self.optimizer.zero_grad()
-                recon_batch, mu, log_var, z = self.model(data)
+                #recon_batch, mu, log_var, z = self.model(data)
+                result = self.model(data)
+                recon_batch, mu, log_var, z = result['recon_batch'], result['mu'], result['log_var'], result['z']
                 recon_loss, kl_loss = self.vae_loss(recon_batch, data, mu, log_var, mu_target=self.vae_mu_target)
                 loss = recon_loss + self.kl_weight * kl_loss
                 loss.backward()
