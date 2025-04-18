@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from collections import defaultdict
 
 
-__all__ = ['DatasetSplit', 'get_dataloaders_federated', 'get_mnist_fashion_datasets','get_dataloaders', 'idx2onehot']
+__all__ = ['DatasetSplit', 'get_dataloaders_federated', 'get_mnist_fashion_datasets','get_dataloaders', 'idx2onehot', 'split_data_federated', 'get_targets', 'get_mnist_fashion_datasets', 'DatasetSplit']
 
 
 def get_dataloaders(cfg):
@@ -85,8 +85,7 @@ class DatasetSplit(torch.utils.data.Dataset):
         self.idxs = [int(i) for i in idxs] # Ensure integer indices
         self.class_dict = {}
         self.client_id = kwargs.get('client_id', None)
-        self.client_idx = kwargs.get('client_idx', None)
-        self.client_class = kwargs.get('client_class', None)
+        self.subset_id = kwargs.get('subset_id', None)
         for idx in self.idxs:
             image, label = self.dataset[idx]
             if torch.is_tensor(label): label_str = str(label.item())
@@ -146,13 +145,13 @@ def _get_targets(dataset: Dataset) -> np.ndarray:
          valid_indices = indices_np[(indices_np >= 0) & (indices_np < len(original_targets))]
          if len(valid_indices) != len(indices_np): print("Warning: Subset indices out of bounds.")
          return original_targets[valid_indices]
-    # else:
-    #     print(f"Warning: Iterating to extract targets for {type(dataset)} (slow).")
-    #     try:
-    #         num_to_check = min(10000, len(dataset))
-    #         labels = [d[1] for d in [dataset[i] for i in range(num_to_check)]]
-    #         return np.array([int(l.item()) if torch.is_tensor(l) else int(l) if isinstance(l, (int, float)) else -1 for l in labels])
-    #     except Exception as e: raise TypeError(f"Could not extract labels/targets from {type(dataset)}. Error: {e}")
+    else:
+        #print(f"Warning: Iterating to extract targets for {type(dataset)} (slow).")
+        try:
+            num_to_check = len(dataset)
+            labels = [d[1] for d in [dataset[i] for i in range(num_to_check)]]
+            return np.array([int(l.item()) if torch.is_tensor(l) else int(l) if isinstance(l, (int, float)) else -1 for l in labels])
+        except Exception as e: raise TypeError(f"Could not extract labels/targets from {type(dataset)}. Error: {e}")
 
 
 # split_data_federated remains the same as the last version provided (2-stage logic)
@@ -370,7 +369,7 @@ def split_data_federated(cfg, train_dataset: Dataset) -> Dict[int, np.ndarray]:
         print(f"Total assigned samples after Stage 2: {total_assigned_final}/{num_samples}")
         print("------------------------------------------------------\n")
 
-    return client_final_indices_dict
+    return client_final_indices_dict, client_subset_assignment
 
 
 # ==============================================
@@ -398,17 +397,31 @@ def get_dataloaders_federated(cfg) -> Tuple[Dict[int, DataLoader], DataLoader, D
     print(f"Index file path: {idx_filepath}")
 
     client_indices: Dict[int, np.ndarray] = {}
+    client_subset_assignment: Dict[int, int] = {}
     force_resplit = getattr(cfg, 'force_resplit', False)
 
     if os.path.exists(idx_filepath) and not force_resplit:
         print("Loading cached client indices...")
         try:
             with open(idx_filepath, 'r') as f:
-                loaded_data = json.load(f)
-                client_indices = {int(k): np.array(v, dtype=np.int64) for k, v in loaded_data.items()}
-                if len(client_indices) != cfg.num_clients:
-                    print(f"Warning: Loaded indices count mismatch. Forcing resplit.")
+                # Load the combined dictionary
+                cached_data = json.load(f)
+                indices_loaded = cached_data.get('indices', {})
+                assignment_loaded = cached_data.get('assignment', {})
+
+                # Convert loaded lists back to numpy arrays and int keys
+                client_indices = {int(k): np.array(v, dtype=np.int64) for k, v in indices_loaded.items()}
+                # Convert assignment keys to int
+                client_subset_assignment = {int(k): v for k, v in assignment_loaded.items()}
+
+                print(f"Successfully loaded indices for {len(client_indices)} clients.")
+                print(f"Successfully loaded assignments for {len(client_subset_assignment)} clients.")
+
+                # Sanity checks
+                if len(client_indices) != cfg.num_clients or len(client_subset_assignment) != cfg.num_clients:
+                    print(f"Warning: Loaded data mismatch (Indices: {len(client_indices)}, Assignment: {len(client_subset_assignment)}) vs cfg.num_clients ({cfg.num_clients}). Forcing resplit.")
                     client_indices = {}
+                    client_subset_assignment = {} # Reset both
                 else: print("Loaded indices successfully.")
                 
         except Exception as e: print(f"Error loading index file: {e}. Regenerating.")
@@ -417,12 +430,20 @@ def get_dataloaders_federated(cfg) -> Tuple[Dict[int, DataLoader], DataLoader, D
         else: print("Cached index file not found. Generating new split...")
 
     if not client_indices:
-        client_indices = split_data_federated(cfg, combined_train_dataset)
+        client_indices, client_subset_assignment = split_data_federated(cfg, combined_train_dataset)
         print(f"Saving generated indices to: {idx_filepath}")
         try:
+            # Prepare data for saving (convert numpy arrays to lists)
             indices_to_save = {k: v.tolist() for k, v in client_indices.items()}
-            with open(idx_filepath, 'w') as f: json.dump(indices_to_save, f, indent=4)
-            print("Indices saved successfully.")
+            # Assignments are already int:int, but ensure keys are strings for JSON
+            assignment_to_save = {str(k): v for k, v in client_subset_assignment.items()}
+            data_to_save = {
+                'indices': indices_to_save,
+                'assignment': assignment_to_save
+            }
+            with open(idx_filepath, 'w') as f:
+                json.dump(data_to_save, f, indent=4)
+            print("Indices and assignments saved successfully.")
         except Exception as e: print(f"Error saving index file: {e}")
     #return client_indices
 
@@ -434,7 +455,7 @@ def get_dataloaders_federated(cfg) -> Tuple[Dict[int, DataLoader], DataLoader, D
         client_id_int = int(client_id)
         if len(idxs) == 0: continue
         #client_class == client subset id
-        split_dataset = DatasetSplit(combined_train_dataset, idxs)
+        split_dataset = DatasetSplit(combined_train_dataset, idxs, client_id=client_id_int, subset_id=client_subset_assignment[client_id_int])
         train_loaders[client_id_int] = DataLoader(split_dataset, batch_size=cfg.batch_size, shuffle=True, num_workers=getattr(cfg, 'num_workers', 4), pin_memory=True, drop_last=False)
 
     print("Creating test dataloaders...")
@@ -444,4 +465,4 @@ def get_dataloaders_federated(cfg) -> Tuple[Dict[int, DataLoader], DataLoader, D
     fashion_test_loader = DataLoader(fashion_testset, batch_size=cfg.eval_batch_size, shuffle=False, num_workers=getattr(cfg, 'num_workers', 4))
     print("DataLoaders created successfully.")
 
-    return train_loaders, test_loader, mnist_test_loader, fashion_test_loader, filename_parts
+    return train_loaders, test_loader, mnist_test_loader, fashion_test_loader, client_subset_assignment, filename_parts

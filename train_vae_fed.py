@@ -69,8 +69,8 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
 
         # Train Clients
         client_weights = [
-            MNISTClient.train(local_epochs),
-            FashionClient.train(local_epochs)
+            MNISTClient.train(local_epochs,global_rounds=round_num),
+            FashionClient.train(local_epochs,global_rounds=round_num)
         ]
 
 
@@ -271,7 +271,7 @@ def train_federated(cfg, data_loaders: Dict[str, DataLoader], model: nn.Module):
         for epoch in range(finetune_epochs):
             wandb_results = {}
             figures_to_close = []
-            finetuned_client.train(1)
+            finetuned_client.train(1, global_rounds=epoch)
             finetuned_client_mnist_analysis = analyze_model(finetuning_client_cfg, finetuned_client.model, f"Unconditional Server Model Round {epoch+1}", data_loaders=data_loaders, prefix="unconditional_servermodel_")
             wandb_results, figures_to_close = log_analysis(wandb_results, finetuned_client_mnist_analysis, figures_to_close)
             finetuned_client_fashion_analysis = analyze_model(finetuning_client_cfg, finetuned_client.model, f"Unconditional Server Model Round {epoch+1}", data_loaders=data_loaders, prefix="unconditional_servermodel_")

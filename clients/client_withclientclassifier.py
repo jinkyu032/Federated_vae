@@ -38,7 +38,9 @@ class VAEClientClassifierClient(VAEClassifierClient):
              print("Warning: Consistency loss enabled, but num_clients <= 1. Loss will not be calculated.")
              self.use_consistency_loss = False # Disable if only one client
 
-    def train(self, local_epochs):
+    def train(self, local_epochs, global_rounds = 0):
+        current_lr = self.cfg.lr * (self.cfg.lr_decay ** global_rounds if self.cfg.lr_decay > 0 else 1)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=current_lr)
 
         loss_meter = AverageMeter('Loss', ':.2f')
         recon_loss_meter = AverageMeter('Recon Loss', ':.2f')

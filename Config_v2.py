@@ -120,7 +120,7 @@ class Config:
 
     ## Training (Federated)
     participation_rate: float = 0.05
-    lr_decay: float = 0.998#1.0
+    lr_decay: float = 0.995
     # mu_target needs dynamic assignment logic based on subset
     # mnist_vae_mu_target: float = 0.0 # Placeholder/Default for subset 0
     # fashion_vae_mu_target: float = 0.0 # Placeholder/Default for subset 1
@@ -148,10 +148,11 @@ class Config:
     save_finetuned_model: bool = True
     client_path: str = "./client_data"
     alpha: float = 0.3
-    num_gen_samples: int = 64
+    num_gen_samples: int = 10000
     condition_subset: bool = False
     finetune_init_from_global: bool = False
-
+    synthetic_visualize_num_samples: int = 144
+    synthetic_visualize_num_samples: int = 10000
 
     #CUDA_VISIBLE_DEVICES=2 python train_vae_fed_v2.py --name=federated_rounds1000_epochs5_finetuneglobal_latentdim22_dir005_wclientclassifierw01
     

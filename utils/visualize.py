@@ -10,6 +10,8 @@ import gc # Garbage collector for explicit memory management
 from sklearn.feature_selection import mutual_info_classif
 import math # For calculating grid size
 from torch.utils.data import DataLoader
+import torch_fidelity
+from torch_fidelity import calculate_metrics
 
 __all__ = ['plot_latent_space', 'plot_latent_per_client', 'plot_latent_per_client', 'plot_recontruction_from_noise', 'analyze_latent_space']
 
@@ -677,7 +679,7 @@ def log_synthetic_batch_wandb(
         # --------------------------------------------
 
         ax.imshow(img_np, cmap=cmap)
-        ax.set_title(f"Label: {label}")
+        ax.set_title(f"condidx: {label}")
         ax.axis('off')
 
     # Turn off axes for any unused subplots
@@ -690,3 +692,7 @@ def log_synthetic_batch_wandb(
     plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjust layout to prevent title overlap
 
     return fig
+
+
+
+

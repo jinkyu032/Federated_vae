@@ -25,8 +25,9 @@ class GlobalClient:
         self.kl_weight = cfg.kl_weight
 
     
-    def train(self, local_epochs):
-
+    def train(self, local_epochs, global_rounds = 0):
+        current_lr = self.cfg.lr * (self.cfg.lr_decay ** global_rounds if self.cfg.lr_decay > 0 else 1)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=current_lr)
         loss_meter = AverageMeter('Loss', ':.2f')
         recon_loss_meter = AverageMeter('Recon Loss', ':.2f')
         kl_loss_meter = AverageMeter('KL Loss', ':.2f')

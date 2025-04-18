@@ -1,5 +1,6 @@
 import torch
 from torchvision import datasets, transforms
+from torchvision.utils import make_grid
 import wandb
 from dataclasses import dataclass,asdict, field
 import argparse
@@ -14,14 +15,14 @@ import numpy as np # Added numpy
 import matplotlib.pyplot as plt
 
 # Assuming these utils exist and function correctly
-from utils.losses import compute_loss
+from utils.losses import compute_loss, calculate_fid_is
 from utils.eval import analyze_model, log_analysis
 # Import the NEW federated data loading function
-from utils.data import get_dataloaders_federated, DatasetSplit # Import the specific function
+from utils.data import get_dataloaders_federated, DatasetSplit, _get_targets
 from clients import get_client # Keep using the factory pattern
 from servers import get_server # Keep using the factory pattern
 from models import get_model
-from utils.visualize import plot_latent_per_client, log_synthetic_batch_wandb # Keep visualization
+from utils.visualize import plot_latent_per_client, log_synthetic_batch_wandb
 
 from tqdm import tqdm
 import gc
@@ -29,6 +30,7 @@ from Config_v2 import Config, get_config
 import copy
 import time # Added time for potential timing logs
 from typing import Optional # Added Optional for type hinting
+
 
 
 # ==============================================
@@ -200,7 +202,7 @@ def generate_synthetic_data(cfg: Config,
                     representative_label = subset_id
             else:
                 # If not conditioning on subset, use the client index as the label
-                representative_label = client_idx % num_classes_total
+                representative_label = client_idx # % num_classes_total
 
 
             # Generate samples using the chosen decoder
@@ -266,9 +268,12 @@ def train_federated(cfg: Config,
                     combined_test_loader: DataLoader,
                     mnist_test_loader: DataLoader,
                     fashion_test_loader: DataLoader,
-                    model: nn.Module):
+                    model: nn.Module,
+                    client_subset_assignment: Dict[int, int], # Map client_id -> subset_id
+                    ):
 
     # Create a dictionary to hold all test loaders for analysis functions
+
     dataloaders_for_analysis = {
         "mnist_test": mnist_test_loader,
         "fashion_test": fashion_test_loader,
@@ -276,11 +281,21 @@ def train_federated(cfg: Config,
         # Add client train loaders if analysis needs them (might be large)
         # **{"client_" + str(cid): loader for cid, loader in client_train_loaders.items()}
     }
+
+
     num_gen_samples = cfg.num_gen_samples # Small number for logging
     # --- Client Initialization ---
     print(f"Initializing {cfg.num_clients} clients...")
     clients: List[Client] = []
-    client_subset_assignment = {}
+    initial_data_table = None
+    sample_images_per_class = {} # Store one image per class found {class_id: image_tensor}
+
+
+    num_total_classes = getattr(cfg, 'num_total_classes', 20) # Default to 20 if not set
+    if getattr(cfg, 'log_initial_data_distribution', True):
+        initial_data_table = wandb.Table(columns=["Client ID", "Subset ID", "Total Samples"] + [f"Class {i}" for i in range(num_total_classes)])
+
+    #client_subset_assignment = {}
     for client_idx in range(cfg.num_clients):
         if client_idx not in client_train_loaders:
             print(f"Warning: No data loader found for client {client_idx}, skipping initialization.")
@@ -291,11 +306,68 @@ def train_federated(cfg: Config,
         # This requires client_subset_assignment from split_data_federated
         # Let's assume a simple alternating pattern for mu_target for demo
         # TODO: Get actual subset assignment and map to mu_target correctly
-        subset_id = client_idx // (cfg.num_clients // cfg.num_subsets) # Approximate subset id
+        loader = client_train_loaders[client_idx]
+        subset_id = client_subset_assignment.get(client_idx, -1) # Get subset ID
         mu_target = 0#cfg.mnist_vae_mu_target if subset_id % 2 == 0 else cfg.fashion_vae_mu_target # Example logic
 
-        client_info = {"client_idx": client_idx, "subset_id": subset_id} # Add more info if needed
-        client_subset_assignment[client_idx] = subset_id # Store assignment for later use
+        client_info = {"client_idx": client_idx, "subset_id": subset_id} # Pass client-specific info
+        #client_subset_assignment[client_idx] = subset_id # Store assignment for later use
+        # --- Calculate Class Distribution and Collect Sample Images from Loader ---
+        client_class_counts = defaultdict(int)
+        total_client_samples = 0
+        found_samples_for_log = {}
+
+
+        # --- Calculate Class Distribution and Collect Sample Images from Loader ---
+        client_class_counts = defaultdict(int)
+        total_client_samples = 0
+        found_samples_for_log = {} # Track samples found for this client {class_id: image}
+
+        if hasattr(loader.dataset, 'idxs') and len(loader.dataset.idxs) > 0: # Check if DatasetSplit
+            total_client_samples = len(loader.dataset.idxs)
+            # More efficient: Use class_dict if DatasetSplit provides it and it's reliable
+            if hasattr(loader.dataset, 'class_dict') and loader.dataset.class_dict:
+                # Ensure keys are integers
+                client_class_counts = defaultdict(int, {int(k): v for k, v in loader.dataset.class_dict.items()})
+                # Try to get sample images directly using indices if possible
+                if sample_images_per_class is not None and len(sample_images_per_class) < num_total_classes:
+                     all_targets_in_split = _get_targets(loader.dataset) # Get targets only for this split
+                     indices_in_split = loader.dataset.idxs
+                     for class_id in range(num_total_classes):
+                         if class_id not in sample_images_per_class: # If we still need an image for this class
+                              # Find first occurrence *within this client's indices*
+                              relative_indices = np.where(all_targets_in_split == class_id)[0]
+                              #breakpoint()
+                              if len(relative_indices) > 0:
+                                   global_index = indices_in_split[relative_indices[0]]
+                                   img, _ = loader.dataset.dataset[global_index] # Get from original dataset
+                                   sample_images_per_class[class_id] = img.cpu() # Store image
+            else:
+                # Fallback: Iterate through loader if class_dict isn't available/reliable
+                print(f"Warning: Iterating DataLoader for client {client_idx} to get class distribution (less efficient).")
+                temp_counts = defaultdict(int)
+                for _, labels in loader:
+                    unique, counts = torch.unique(labels, return_counts=True)
+                    for label, count in zip(unique, counts):
+                        lbl_int = int(label.item())
+                        temp_counts[lbl_int] += int(count.item())
+                        # Collect sample images while iterating
+                        if sample_images_per_class is not None and lbl_int not in sample_images_per_class:
+                             first_occurrence_idx_in_batch = (labels == label).nonzero(as_tuple=True)[0][0]
+                             sample_images_per_class[lbl_int] = _[first_occurrence_idx_in_batch].cpu()
+                client_class_counts = temp_counts
+                total_client_samples = sum(client_class_counts.values()) # Recalculate total
+        else:
+             print(f"Warning: Cannot determine data for client {client_idx}. Loader dataset type: {type(loader.dataset)}")
+
+
+        # --- Log Row to WandB Table ---
+        if initial_data_table is not None:
+            row_data = [client_idx, subset_id, total_client_samples] + [client_class_counts.get(i, 0) for i in range(num_total_classes)]
+            initial_data_table.add_data(*row_data)
+
+
+
         clients.append(
             get_client(
                 cfg,
@@ -305,6 +377,30 @@ def train_federated(cfg: Config,
                 **client_info
             )
         )
+
+    # --- Log Initial Stats to WandB (after loop) ---
+    if initial_data_table is not None:
+        wandb.log({"client_data_distribution": initial_data_table}, step=0)
+        print("Logged client data distribution table.")
+
+    if sample_images_per_class:
+        print("Logging sample images per class grid...")
+        images_to_log = []
+        captions = []
+        for k in sorted(sample_images_per_class.keys()): # Log in class order
+             if k < num_total_classes : # Ensure key is valid class
+                 images_to_log.append(sample_images_per_class[k])
+                 captions.append(f"Cls {k}")
+        if images_to_log:
+            grid = make_grid(images_to_log, nrow=int(np.ceil(np.sqrt(len(images_to_log)))), normalize=False, pad_value=0.5)
+            wandb.log({"sample_images_per_class": wandb.Image(grid, caption="Sample Image per Original Class Found")}, step=0)
+            print("Logged sample images.")
+    else:
+            print("No valid sample images found to log.")
+
+    #close done data
+
+    
     if len(clients) != cfg.num_clients:
          print(f"Warning: Initialized {len(clients)} clients, but cfg.num_clients is {cfg.num_clients}.")
          # Adjust num_clients if some were skipped? Or handle error.
@@ -346,9 +442,9 @@ def train_federated(cfg: Config,
         client_weights_updates = [] # Store results as (weight, update_dict) or similar
         round_local_losses = defaultdict(list) # Accumulate losses from participants
 
-        for client in tqdm(participating_clients, desc=f"  Round {round_num+1} Local Train", leave=False):
+        for client in participating_clients:
             # Train returns state_dict and loss dict
-            update_dict, local_loss_dict = client.train(local_epochs, round_num)
+            update_dict, local_loss_dict = client.train(local_epochs, global_rounds = round_num)
             client_weights_updates.append([update_dict]) # Append the returned update dict
             for key, value in local_loss_dict.items():
                 round_local_losses[key].append(value) # Store loss values
@@ -394,7 +490,7 @@ def train_federated(cfg: Config,
 
         # 7. Optional: Generate & Log Synthetic Data (Less Frequently?)
         # Generate synthetic data from a subset of clients or global model for monitoring
-        if (round_num + 1) % cfg.log_synthetic_freq == 0:
+        if (round_num) % cfg.log_synthetic_freq == 0:
             print("  Generating and logging synthetic data sample...")
             # Generate small sample using representative clients or global model
             # Need access to the specific client models involved *in this round*
@@ -422,10 +518,13 @@ def train_federated(cfg: Config,
 
             if local_synthetic_data.numel() > 0:
                 local_synthetic_dataloader = get_synthetic_dataloader(cfg, local_synthetic_data, local_synthetic_labels)
+                gen_img_quality = calculate_fid_is(cfg, local_synthetic_data, num_samples=cfg.synthetic_visualize_num_samples)
+                for key, value in gen_img_quality.items():
+                    wandb_round_results[f"local_synthetic_{key}"] = value
                 if local_synthetic_dataloader:
                      # visualize_and_log_synthetic_data needs adjustment to return figure or handle wandb internally
                      # Assuming log_synthetic_batch_wandb returns a figure
-                     local_synthetic_fig = log_synthetic_batch_wandb(local_synthetic_dataloader, caption=f"Local Synthetic_R{round_num+1}", num_samples=64)
+                     local_synthetic_fig = log_synthetic_batch_wandb(local_synthetic_dataloader, caption=f"Local Synthetic_R{round_num+1}", num_samples=cfg.synthetic_visualize_num_samples)
                      wandb_round_results[f'local_synthetic'] = wandb.Image(local_synthetic_fig)
                      figures_to_close.append(local_synthetic_fig)
 
@@ -437,8 +536,11 @@ def train_federated(cfg: Config,
 
             if global_synthetic_data.numel() > 0:
                 global_synthetic_dataloader = get_synthetic_dataloader(cfg, global_synthetic_data, global_synthetic_labels)
+                gen_img_quality = calculate_fid_is(cfg, global_synthetic_data, num_samples=cfg.synthetic_visualize_num_samples)
+                for key, value in gen_img_quality.items():
+                    wandb_round_results[f"global_synthetic_{key}"] = value
                 if global_synthetic_dataloader:
-                    global_synthetic_fig = log_synthetic_batch_wandb(global_synthetic_dataloader, caption=f"Global Synthetic_R{round_num+1}", num_samples=64)
+                    global_synthetic_fig = log_synthetic_batch_wandb(global_synthetic_dataloader, caption=f"Global Synthetic_R{round_num+1}", num_samples=cfg.synthetic_visualize_num_samples)
                     wandb_round_results[f'global_synthetic'] = wandb.Image(global_synthetic_fig)
                     figures_to_close.append(global_synthetic_fig)
 
@@ -499,7 +601,14 @@ def train_federated(cfg: Config,
 
         wandb_round_results = {}
 
-        synthetic_image = log_synthetic_batch_wandb(synthetic_dataloader, caption = "synthetic_data", num_samples=64)
+        gen_img_quality = calculate_fid_is(cfg, synthetic_data, num_samples=cfg.synthetic_visualize_num_samples)
+        for key, value in gen_img_quality.items():
+            wandb_round_results[f"synthetic_data_{key}"] = value
+
+
+        synthetic_image = log_synthetic_batch_wandb(synthetic_dataloader, caption = "synthetic_data", num_samples=cfg.synthetic_visualize_num_samples)
+        
+        
         wandb_round_results['synthetic_data'] = wandb.Image(synthetic_image)
         wandb.log(wandb_round_results, step=num_rounds)
         plt.close(synthetic_image)
@@ -513,11 +622,11 @@ def train_federated(cfg: Config,
         # 5. Initialize Unconditional Model
         unconditional_model = get_model(cfg_finalmodel)
         if cfg.get("finetune_init_from_global", False):
-             print("  Initializing fine-tuning model with final global server weights.")
-             # Use strict=False if architecture differs (e.g., removed classifier)
-             missing_keys, unexpected_keys = unconditional_model.load_state_dict(server.global_model.state_dict(), strict=False)
-             if missing_keys: print(f"  Warning: Missing keys during fine-tune init: {missing_keys}")
-             if unexpected_keys: print(f"  Warning: Unexpected keys during fine-tune init: {unexpected_keys}")
+            print("  Initializing fine-tuning model with final global server weights.")
+            # Use strict=False if architecture differs (e.g., removed classifier)
+            missing_keys, unexpected_keys = unconditional_model.load_state_dict(server.global_model.state_dict(), strict=False)
+            if missing_keys: print(f"  Warning: Missing keys during fine-tune init: {missing_keys}")
+            if unexpected_keys: print(f"  Warning: Unexpected keys during fine-tune init: {unexpected_keys}")
         unconditional_model.to(cfg.device)
 
         # 6. Fine-tune using a simple client setup
@@ -545,7 +654,7 @@ def train_federated(cfg: Config,
             ft_figures_to_close = []
 
             # Train for one epoch - model is updated in-place within the client
-            _, ft_loss_dict = finetuning_client.train(1)
+            _, ft_loss_dict = finetuning_client.train(1, global_rounds=epoch)
             for key, value in ft_loss_dict.items():
                 ft_wandb_results[f"finetune_{key}"] = value # Log fine-tuning loss
 
@@ -562,7 +671,7 @@ def train_federated(cfg: Config,
 
             # Log synthetic data from fine-tuned model (optional, maybe less frequent)
             pseudo_client_models = [deepcopy(finetuning_client.model) for element in last_client_localmodels]
-            if (epoch + 1) % cfg.log_finetuned_synthetic_freq == 0:
+            if (epoch) % cfg.log_finetuned_synthetic_freq == 0:
                  finetuned_synthetic_data, finetuned_synthetic_labels = generate_synthetic_data(
                      finetuning_client_cfg, client_models=pseudo_client_models, 
                      global_model=finetuning_client.model, num_samples_total=num_gen_samples,
@@ -572,9 +681,14 @@ def train_federated(cfg: Config,
                  if finetuned_synthetic_data.numel() > 0:
                       ft_synth_loader = get_synthetic_dataloader(cfg, finetuned_synthetic_data, finetuned_synthetic_labels)
                       if ft_synth_loader:
-                           ft_synth_fig = log_synthetic_batch_wandb(ft_synth_loader, caption=f"Finetuned Synth E{epoch+1}", num_samples=64)
-                           ft_wandb_results[f'finetuned_synthetic'] = wandb.Image(ft_synth_fig)
-                           ft_figures_to_close.append(ft_synth_fig)
+                            gen_img_quality = calculate_fid_is(cfg, finetuned_synthetic_data, num_samples=cfg.synthetic_visualize_num_samples)
+                            for key, value in gen_img_quality.items():
+                                wandb_round_results[f"finetuned_synthetic_{key}"] = value
+
+
+                            ft_synth_fig = log_synthetic_batch_wandb(ft_synth_loader, caption=f"Finetuned Synth E{epoch+1}", num_samples=cfg.synthetic_visualize_num_samples)
+                            ft_wandb_results[f'finetuned_synthetic'] = wandb.Image(ft_synth_fig)
+                            ft_figures_to_close.append(ft_synth_fig)
 
 
             # Log fine-tuning results (offset step)
@@ -636,7 +750,7 @@ if __name__ == "__main__":
     # Get datasets and dataloaders using the new federated function
     # Assuming cfg contains necessary parameters like data_dir, batch_size etc.
     # The function now returns client_train_loaders dict and test loaders
-    client_train_loaders, combined_test_loader, mnist_test_loader, fashion_test_loader, filename_parts = get_dataloaders_federated(cfg)
+    client_train_loaders, combined_test_loader, mnist_test_loader, fashion_test_loader, client_subset_assignment, filename_parts = get_dataloaders_federated(cfg)
 
 
     # Initialize W&B
@@ -656,6 +770,7 @@ if __name__ == "__main__":
         wandb_mode = "disabled" # Fallback to disabled
 
 
+
     if not client_train_loaders:
          print("Error: No client training dataloaders were created. Exiting.")
          if wandb_mode != "disabled": wandb.finish(exit_code=1)
@@ -673,7 +788,8 @@ if __name__ == "__main__":
         combined_test_loader,
         mnist_test_loader,
         fashion_test_loader,
-        model
+        model,
+        client_subset_assignment
     )
 
     if wandb_mode != "disabled": wandb.finish()

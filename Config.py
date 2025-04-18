@@ -120,7 +120,7 @@ class Config:
 
     ## Training (Federated)
     participation_rate: float = 0.05
-    local_lr_decay: float = 1.0
+    lr_decay: float = 0.995
     # mu_target needs dynamic assignment logic based on subset
     # mnist_vae_mu_target: float = 0.0 # Placeholder/Default for subset 0
     # fashion_vae_mu_target: float = 0.0 # Placeholder/Default for subset 1
