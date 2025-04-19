@@ -131,7 +131,7 @@ def generate_synthetic_data(cfg: Config,
                             device: torch.device = torch.device('cpu'),
                             gen_from_global: bool = False, # Flag to indicate if using global model,
                             client_idxs: Optional[List[int]] = None # Optional list of client indices to generate from
-                           ) -> Tuple[torch.Tensor, torch.Tensor]:
+                        ) -> Tuple[torch.Tensor, torch.Tensor]:
     """
     Generates synthetic data by sampling from EACH client's trained VAE decoder.
 
@@ -140,7 +140,7 @@ def generate_synthetic_data(cfg: Config,
         client_models: List of trained client VAE models (index matches client_id).
         client_subset_assignment: Dictionary mapping client_id to subset_id.
         global_model: Optional global model. If cfg.finetune_gen_global_model is True,
-                      its decoder is used instead of client decoders.
+                    its decoder is used instead of client decoders.
         num_samples_total: Total number of synthetic samples to generate across all clients.
         device: Device to perform generation on.
 
@@ -331,17 +331,17 @@ def train_federated(cfg: Config,
                 client_class_counts = defaultdict(int, {int(k): v for k, v in loader.dataset.class_dict.items()})
                 # Try to get sample images directly using indices if possible
                 if sample_images_per_class is not None and len(sample_images_per_class) < num_total_classes:
-                     all_targets_in_split = _get_targets(loader.dataset) # Get targets only for this split
-                     indices_in_split = loader.dataset.idxs
-                     for class_id in range(num_total_classes):
-                         if class_id not in sample_images_per_class: # If we still need an image for this class
+                    all_targets_in_split = _get_targets(loader.dataset) # Get targets only for this split
+                    indices_in_split = loader.dataset.idxs
+                    for class_id in range(num_total_classes):
+                        if class_id not in sample_images_per_class: # If we still need an image for this class
                               # Find first occurrence *within this client's indices*
-                              relative_indices = np.where(all_targets_in_split == class_id)[0]
-                              #breakpoint()
-                              if len(relative_indices) > 0:
-                                   global_index = indices_in_split[relative_indices[0]]
-                                   img, _ = loader.dataset.dataset[global_index] # Get from original dataset
-                                   sample_images_per_class[class_id] = img.cpu() # Store image
+                            relative_indices = np.where(all_targets_in_split == class_id)[0]
+                            #reakpoint()
+                            if len(relative_indices) > 0:
+                                global_index = indices_in_split[relative_indices[0]]
+                                img, _ = loader.dataset.dataset[global_index] # Get from original dataset
+                                sample_images_per_class[class_id] = img.cpu() # Store image
             else:
                 # Fallback: Iterate through loader if class_dict isn't available/reliable
                 print(f"Warning: Iterating DataLoader for client {client_idx} to get class distribution (less efficient).")
@@ -353,12 +353,12 @@ def train_federated(cfg: Config,
                         temp_counts[lbl_int] += int(count.item())
                         # Collect sample images while iterating
                         if sample_images_per_class is not None and lbl_int not in sample_images_per_class:
-                             first_occurrence_idx_in_batch = (labels == label).nonzero(as_tuple=True)[0][0]
-                             sample_images_per_class[lbl_int] = _[first_occurrence_idx_in_batch].cpu()
+                            first_occurrence_idx_in_batch = (labels == label).nonzero(as_tuple=True)[0][0]
+                            sample_images_per_class[lbl_int] = _[first_occurrence_idx_in_batch].cpu()
                 client_class_counts = temp_counts
                 total_client_samples = sum(client_class_counts.values()) # Recalculate total
         else:
-             print(f"Warning: Cannot determine data for client {client_idx}. Loader dataset type: {type(loader.dataset)}")
+            print(f"Warning: Cannot determine data for client {client_idx}. Loader dataset type: {type(loader.dataset)}")
 
 
         # --- Log Row to WandB Table ---
@@ -388,9 +388,9 @@ def train_federated(cfg: Config,
         images_to_log = []
         captions = []
         for k in sorted(sample_images_per_class.keys()): # Log in class order
-             if k < num_total_classes : # Ensure key is valid class
-                 images_to_log.append(sample_images_per_class[k])
-                 captions.append(f"Cls {k}")
+            if k < num_total_classes : # Ensure key is valid class
+                images_to_log.append(sample_images_per_class[k])
+                captions.append(f"Cls {k}")
         if images_to_log:
             grid = make_grid(images_to_log, nrow=int(np.ceil(np.sqrt(len(images_to_log)))), normalize=False, pad_value=0.5)
             wandb.log({"sample_images_per_class": wandb.Image(grid, caption="Sample Image per Original Class Found")}, step=0)
@@ -402,9 +402,9 @@ def train_federated(cfg: Config,
 
     
     if len(clients) != cfg.num_clients:
-         print(f"Warning: Initialized {len(clients)} clients, but cfg.num_clients is {cfg.num_clients}.")
-         # Adjust num_clients if some were skipped? Or handle error.
-         # For now, proceed with the initialized clients.
+        print(f"Warning: Initialized {len(clients)} clients, but cfg.num_clients is {cfg.num_clients}.")
+        # Adjust num_clients if some were skipped? Or handle error.
+        # For now, proceed with the initialized clients.
 
     if not clients:
         raise RuntimeError("No clients were initialized. Check data splitting and client configuration.")
@@ -458,20 +458,20 @@ def train_federated(cfg: Config,
         # 4. Optional: Analyze Local Models (Before Aggregation)
         # Analyze only a subset of participating clients to save time/wandb space?
         if cfg.get("analyze_local_models_before_update", False):
-             num_clients_to_analyze = len(participating_clients)
-             print(f"  Analyzing {num_clients_to_analyze} local models...")
-             for i in range(num_clients_to_analyze):
-                 client_to_analyze = participating_clients[i]
-                 client_idx = client_to_analyze.client_idx # Get the original client index
-                 prefix = f"client{client_idx}_"
-                 # Pass necessary client info if analyze_model needs it
-                 client_info = {"client_idx": client_idx, "subset_id": client_to_analyze.subset_id}
-                 analysis = analyze_model(cfg, client_to_analyze.model, f"Client {client_idx} Round {round_num+1} Pre-Agg",
-                                          data_loaders=dataloaders_for_analysis, # Pass test loaders
-                                          prefix=prefix,
-                                          **client_info, # Pass client specific info if needed by analysis
-                                          compare_model=server.global_model)
-                 wandb_round_results, figures_to_close = log_analysis(wandb_round_results, analysis, figures_to_close)
+            num_clients_to_analyze = len(participating_clients)
+            print(f"  Analyzing {num_clients_to_analyze} local models...")
+            for i in range(num_clients_to_analyze):
+                client_to_analyze = participating_clients[i]
+                client_idx = client_to_analyze.client_idx # Get the original client index
+                prefix = f"client{client_idx}_"
+                # Pass necessary client info if analyze_model needs it
+                client_info = {"client_idx": client_idx, "subset_id": client_to_analyze.subset_id}
+                analysis = analyze_model(cfg, client_to_analyze.model, f"Client {client_idx} Round {round_num+1} Pre-Agg",
+                                        data_loaders=dataloaders_for_analysis, # Pass test loaders
+                                        prefix=prefix,
+                                        **client_info, # Pass client specific info if needed by analysis
+                                        compare_model=server.global_model)
+                wandb_round_results, figures_to_close = log_analysis(wandb_round_results, analysis, figures_to_close)
 
         
 
@@ -522,16 +522,16 @@ def train_federated(cfg: Config,
                 for key, value in gen_img_quality.items():
                     wandb_round_results[f"local_synthetic_{key}"] = value
                 if local_synthetic_dataloader:
-                     # visualize_and_log_synthetic_data needs adjustment to return figure or handle wandb internally
-                     # Assuming log_synthetic_batch_wandb returns a figure
-                     local_synthetic_fig = log_synthetic_batch_wandb(local_synthetic_dataloader, caption=f"Local Synthetic_R{round_num+1}", num_samples=cfg.synthetic_visualize_num_samples)
-                     wandb_round_results[f'local_synthetic'] = wandb.Image(local_synthetic_fig)
-                     figures_to_close.append(local_synthetic_fig)
+                    # visualize_and_log_synthetic_data needs adjustment to return figure or handle wandb internally
+                    # Assuming log_synthetic_batch_wandb returns a figure
+                    local_synthetic_fig = log_synthetic_batch_wandb(local_synthetic_dataloader, caption=f"Local Synthetic_R{round_num+1}", num_samples=cfg.synthetic_visualize_num_samples)
+                    wandb_round_results[f'local_synthetic'] = wandb.Image(local_synthetic_fig)
+                    figures_to_close.append(local_synthetic_fig)
 
             # Generate from global model
             global_synthetic_data, global_synthetic_labels = generate_synthetic_data(
-                 cfg, client_models=last_local_models, # No specific clients
-                 global_model=server.global_model, num_samples_total=num_gen_samples, device=cfg.device, gen_from_global=True, client_subset_assignment=client_subset_assignment, client_idxs=participating_client_indices
+                cfg, client_models=last_local_models, # No specific clients
+                global_model=server.global_model, num_samples_total=num_gen_samples, device=cfg.device, gen_from_global=True, client_subset_assignment=client_subset_assignment, client_idxs=participating_client_indices
             )
 
             if global_synthetic_data.numel() > 0:
@@ -572,7 +572,7 @@ def train_federated(cfg: Config,
         cfg_finalmodel.use_classifier = False
         cfg_finalmodel.client_classifier = False
         if cfg.get("finetune_kl_weight", -1) >= 0: # Allow overriding KL weight
-             cfg_finalmodel.kl_weight = cfg.finetune_kl_weight
+            cfg_finalmodel.kl_weight = cfg.finetune_kl_weight
 
         # 1. Get Last *Participating* Client Models (More representative)
         # Use the models collected just before aggregation in the *last* round
@@ -596,8 +596,8 @@ def train_federated(cfg: Config,
         # 3. Create Synthetic Dataloader
         synthetic_dataloader = get_synthetic_dataloader(cfg, synthetic_data, synthetic_labels)
         if not synthetic_dataloader:
-             print("Error: Could not create synthetic dataloader for fine-tuning. Skipping.")
-             return server.global_model # Return the original federated model
+            print("Error: Could not create synthetic dataloader for fine-tuning. Skipping.")
+            return server.global_model # Return the original federated model
 
         wandb_round_results = {}
 
@@ -659,7 +659,7 @@ def train_federated(cfg: Config,
                 ft_wandb_results[f"finetune_{key}"] = value # Log fine-tuning loss
 
             # Analyze fine-tuned model (optional, maybe less frequent)
-            if (epoch + 1) % cfg.analyze_finetuned_freq == 0:
+            if (epoch) % cfg.analyze_finetuned_freq == 0:
                 finetuned_analysis = analyze_model(
                     finetuning_client_cfg, # Use fine-tuning config
                     finetuning_client.model,
@@ -672,23 +672,22 @@ def train_federated(cfg: Config,
             # Log synthetic data from fine-tuned model (optional, maybe less frequent)
             pseudo_client_models = [deepcopy(finetuning_client.model) for element in last_client_localmodels]
             if (epoch) % cfg.log_finetuned_synthetic_freq == 0:
-                 finetuned_synthetic_data, finetuned_synthetic_labels = generate_synthetic_data(
-                     finetuning_client_cfg, client_models=pseudo_client_models, 
-                     global_model=finetuning_client.model, num_samples_total=num_gen_samples,
-                     device=cfg.device, gen_from_global=True,
-                     client_subset_assignment=client_subset_assignment, # Pass the subset assignment
-                 )
-                 if finetuned_synthetic_data.numel() > 0:
-                      ft_synth_loader = get_synthetic_dataloader(cfg, finetuned_synthetic_data, finetuned_synthetic_labels)
-                      if ft_synth_loader:
-                            gen_img_quality = calculate_fid_is(cfg, finetuned_synthetic_data, num_samples=cfg.synthetic_visualize_num_samples)
-                            for key, value in gen_img_quality.items():
-                                wandb_round_results[f"finetuned_synthetic_{key}"] = value
+                finetuned_synthetic_data, finetuned_synthetic_labels = generate_synthetic_data(
+                    finetuning_client_cfg, client_models=pseudo_client_models, 
+                    global_model=finetuning_client.model, num_samples_total=num_gen_samples,
+                    device=cfg.device, gen_from_global=True,
+                    client_subset_assignment=client_subset_assignment, # Pass the subset assignment
+                )
+                ft_synth_loader = get_synthetic_dataloader(cfg, finetuned_synthetic_data, finetuned_synthetic_labels)
+                if ft_synth_loader:
+                    gen_img_quality = calculate_fid_is(cfg, finetuned_synthetic_data, num_samples=cfg.synthetic_visualize_num_samples)
+                    for key, value in gen_img_quality.items():
+                        ft_wandb_results[f"finetuned_synthetic_{key}"] = value
 
 
-                            ft_synth_fig = log_synthetic_batch_wandb(ft_synth_loader, caption=f"Finetuned Synth E{epoch+1}", num_samples=cfg.synthetic_visualize_num_samples)
-                            ft_wandb_results[f'finetuned_synthetic'] = wandb.Image(ft_synth_fig)
-                            ft_figures_to_close.append(ft_synth_fig)
+                    ft_synth_fig = log_synthetic_batch_wandb(ft_synth_loader, caption=f"Finetuned Synth E{epoch+1}", num_samples=cfg.synthetic_visualize_num_samples)
+                    ft_wandb_results[f'finetuned_synthetic'] = wandb.Image(ft_synth_fig)
+                    ft_figures_to_close.append(ft_synth_fig)
 
 
             # Log fine-tuning results (offset step)
@@ -703,9 +702,9 @@ def train_federated(cfg: Config,
         final_finetuned_model = finetuning_client.model # Get the final trained model
 
         if cfg.get("save_finetuned_model", True) and cfg.save_dir is not None:
-             finetuned_save_path = f"{cfg.save_dir}/{cfg.name}_finetuned.pth"
-             torch.save(final_finetuned_model.state_dict(), finetuned_save_path)
-             print(f"Fine-tuned model saved to {finetuned_save_path}")
+            finetuned_save_path = f"{cfg.save_dir}/{cfg.name}_finetuned.pth"
+            torch.save(final_finetuned_model.state_dict(), finetuned_save_path)
+            print(f"Fine-tuned model saved to {finetuned_save_path}")
 
         return final_finetuned_model # Return the fine-tuned model
 
@@ -772,9 +771,9 @@ if __name__ == "__main__":
 
 
     if not client_train_loaders:
-         print("Error: No client training dataloaders were created. Exiting.")
-         if wandb_mode != "disabled": wandb.finish(exit_code=1)
-         exit()
+        print("Error: No client training dataloaders were created. Exiting.")
+        if wandb_mode != "disabled": wandb.finish(exit_code=1)
+        exit()
 
 
     # Get Model

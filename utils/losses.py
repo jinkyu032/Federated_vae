@@ -273,7 +273,7 @@ def calculate_fid_is(cfg,
         input2_cache_dir=reference_stats_name,
         # Alternatively, provide path to reference data directly if cache doesn't exist:
         # input2='/path/to/your/reference/images/folder',
-        cuda=True,
+        cuda=False, #True,
         isc=True, # Calculate Inception Score
         fid=True, # Calculate FID
         verbose=False, # Set to True for detailed progress
@@ -365,7 +365,7 @@ class FidelityInputDataset(Dataset):
                 raw_data = item[0]
             else:
                 raw_data = item
-        else: # Tensor or list of tensors
+        else: # Tensor or list of tensors f
             # Assumes original_input is (N, ...) or list[idx] is (...)
             raw_data = self.original_input[idx]
         return raw_data

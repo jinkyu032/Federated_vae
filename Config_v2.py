@@ -135,7 +135,7 @@ class Config:
     use_mu_for_analysis: bool = False
     mi_n_neighbors: int = 5
     mi_subsample_ratio: Optional[float] = None
-    log_synthetic_freq: int = 10
+    log_synthetic_freq: int = 25
 
     ## Fine-tuning
     #num_synthetic_samples_per_client: int = 10000 # Changed default
