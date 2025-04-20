@@ -128,6 +128,7 @@ def get_mnist_fashion_datasets(data_dir: str = './data', download: bool = True) 
 import torchvision.transforms.functional as TF
 from torch.utils.data import Dataset, random_split
 from sklearn.model_selection import train_test_split
+from torchvision.datasets import EuroSAT
 
 class ColoredFashionMNIST(datasets.FashionMNIST):
     def __init__(self, root, train, download, transform=None):
