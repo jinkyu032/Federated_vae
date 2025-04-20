@@ -124,6 +124,36 @@ def get_mnist_fashion_datasets(data_dir: str = './data', download: bool = True) 
     else: print("Warning: Could not find standard 'targets' or 'labels' attribute.")
     return mnist_trainset, mnist_testset, fashion_trainset, fashion_testset
 
+###############################################################################################################
+import torchvision.transforms.functional as TF
+from torch.utils.data import Dataset, random_split
+from sklearn.model_selection import train_test_split
+
+class ColoredFashionMNIST(datasets.FashionMNIST):
+    def __init__(self, root, train, download, transform=None):
+        super().__init__(root=root, train=train, download=download, transform=transform)
+        self.color_map = {
+                            10: (1.0, 0.0, 0.0),   # T‑셔츠/상의 → 빨강
+                            11: (0.0, 1.0, 0.0),   # 바지       → 초록
+                            12: (0.0, 0.0, 1.0),   # 풀오버     → 파랑
+                            13: (1.0, 1.0, 0.0),   # 드레스     → 노랑
+                            14: (1.0, 0.0, 1.0),   # 코트       → 마젠타
+                            15: (0.0, 1.0, 1.0),   # 샌들       → 시안
+                            16: (0.5, 0.5, 0.0),   # 셔츠       → 올리브
+                            17: (0.5, 0.0, 0.5),   # 스니커즈   → 보라
+                            18: (0.0, 0.5, 0.5),   # 가방       → 청록
+                            19: (0.33, 0.66, 0.33) # 앵클 부츠  → 연두
+                        }
+
+    def __getitem__(self, index):
+        img, label = super().__getitem__(index)
+        gray = TF.to_tensor(img)  # shape = (1, H, W)
+        v = gray.squeeze(0)       # shape = (H, W)
+        color = torch.tensor(self.color_map[label], dtype=torch.float32) \
+                        .view(3, 1, 1)
+        colored = v.unsqueeze(0).repeat(3, 1, 1) * color  # shape = (3, H, W)
+        return colored, label
+
 
 def _get_targets(dataset: Dataset) -> np.ndarray:
     # (Implementation from previous answer)
