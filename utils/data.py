@@ -154,6 +154,47 @@ class ColoredFashionMNIST(datasets.FashionMNIST):
         colored = v.unsqueeze(0).repeat(3, 1, 1) * color  # shape = (3, H, W)
         return colored, label
 
+class EuroSATSplit(EuroSAT):
+    def __init__(
+        self,
+        root: str,
+        split: str = 'train',
+        transform=None,
+        download: bool = False,
+        test_size: float = 0.2,
+        random_state: int = 42,
+    ):
+        super().__init__(root=root, transform=transform, download=download)
+
+        if hasattr(self, 'targets'):
+            labels = np.array(self.targets)
+        else:
+            labels = np.array([label for _, label in self.samples])
+
+        # 2) stratified split
+        indices = np.arange(len(labels))
+        train_idx, test_idx = train_test_split(
+            indices,
+            test_size=test_size,
+            random_state=random_state,
+            stratify=labels
+        )
+
+        if split == 'train':
+            self.split_idx = train_idx
+        elif split == 'test':
+            self.split_idx = test_idx
+        else:
+            raise ValueError("split keyword must be 'train' or 'test'")
+
+    def __len__(self):
+        return len(self.split_idx)
+
+    def __getitem__(self, idx):
+        real_idx = self.split_idx[idx]
+        return super().__getitem__(real_idx)
+####################################################################################################################
+
 
 def _get_targets(dataset: Dataset) -> np.ndarray:
     # (Implementation from previous answer)
