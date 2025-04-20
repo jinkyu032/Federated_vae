@@ -193,6 +193,30 @@ class EuroSATSplit(EuroSAT):
     def __getitem__(self, idx):
         real_idx = self.split_idx[idx]
         return super().__getitem__(real_idx)
+
+def get_eurosat_fashion_datasets(data_dir: str = './data', download: bool = True) -> Tuple[Dataset, Dataset, Dataset, Dataset]:
+    transform = transforms.Compose([
+        transforms.Resize((28, 28)),     
+        transforms.ToTensor(),            
+    ])
+    fashion_trainset = ColoredFashionMNIST(data_dir, train=True, download=True, transform=None)
+    fashion_testset = ColoredFashionMNIST(data_dir, train=False, download=True, transform=None)
+    # Eurosat
+    eurosat_train = EuroSATSplit(data_dir, split='train', transform=transform, download=True, test_size=0.2, random_state=42)
+    eurosat_test = EuroSATSplit(data_dir, split='test', transform=transform, download=False,   test_size=0.2,random_state=42)
+    
+    if hasattr(fashion_trainset, 'targets'):
+        if isinstance(fashion_trainset.targets, tuple): fashion_trainset.targets = list(fashion_trainset.targets)
+        if isinstance(fashion_testset.targets, tuple): fashion_testset.targets = list(fashion_testset.targets)
+        fashion_trainset.targets = torch.as_tensor(fashion_trainset.targets) + 10
+        fashion_testset.targets = torch.as_tensor(fashion_testset.targets) + 10
+    elif hasattr(fashion_trainset, 'labels'):
+        if isinstance(fashion_trainset.labels, tuple): fashion_trainset.labels = list(fashion_trainset.labels)
+        if isinstance(fashion_testset.labels, tuple): fashion_testset.labels = list(fashion_testset.labels)
+        fashion_trainset.labels = torch.as_tensor(fashion_trainset.labels) + 10
+        fashion_testset.labels = torch.as_tensor(fashion_testset.labels) + 10
+    else: print("Warning: Could not find standard 'targets' or 'labels' attribute.")
+    return eurosat_train, eurosat_test, fashion_trainset, fashion_testset
 ####################################################################################################################
 
 
